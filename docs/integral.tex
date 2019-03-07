@@ -1,0 +1,57 @@
+\section{Total wire current}\label{sec:integral}
+
+The theory of Clements and Smy establishes that the saturation current on a wire per area, $J$, is a function of the wire diameter, $D_w$, the fluid velocity, $U$, and the ion density, $n$.  If $J_D$ were defined to represent the saturation current per unit surface area a wire of diameter $D$ would experience, then it is only a function of local ion density and bulk velocity.  In this way, $J_D$ is a locally defined fluid property from which the ion density may be deduced.  Clearly, $J_D$ is only a well defined property provided that all length scales of interest are larger than the diameter of the wire.
+
+The value of $J_D$ is readily measured directly by insertion of a wire into the fluid.  When the fluid is uniform, the current measured, $I$, will be given by
+\begin{align}
+I = \pi D_w L J_D\nonumber
+\end{align}
+when $L$ is the length of wire inserted into the plasma.  This is the method used by MacLatchey \cite{}.
+
+However, when the fluid is not uniform, a more sophisticated formulation is required.  In general, $J_D$ is a function in three dimensions; $x$ and $y$ perpendicular to the bulk velocity, and $z$ parallel to the direction of flow.  For the present work, we are entirely concerned with discerning the values of $J_D$ in the $x-y$ plane (for a single value of $z$ at a time).  The method we establish here may be repeated at different values of $z$ to produce complete three-dimensional maps for $J_D$.
+
+Therefore, we may write, with sufficient generality for our needs, that
+\begin{align}
+I = \pi D_w \int_0^R J_D(x,y) \mathrm{d} r\label{eqn:I}
+\end{align}
+when $R$ is the radius of the spinning wire from the center of rotation, $\mathrm{d}r$ is the differential length along that radius, and $x$ and $y$ are implicit functions of $r$.  
+
+Inspection of Equation \ref{eqn:I} is sufficient to conclude that a single measurement of $I$ cannot distinguish between an infinite number of possible spatial distributions of $J_D$.  Instead, it should be possible to deduce a specific $J_D$ map by collecting a series of overlapping but dissimilar trajectories for the wire in $x,y$ space.
+
+As shown in Figure \ref{fig:coordinate}, a spinning disc with a wire probe could be passed through a flame with varying depths.  When only the tip of the wire interacts with the flame, it would be certain that any electrical currents were collected at the wire's tip.  Successively deeper passes through the flame could benefit from the prior measurements by subtracting the already known currents to infer the new currents realized at the wire's tip. 
+
+\begin{figure}
+\begin{center}
+[ADD FIGURE]
+\caption{The measurement coordinate system.}\label{fig:coordinate}
+\end{center}
+\end{figure}
+
+This approach would be akin to the Abel transformation used to infer an axis-symmetric quantity from a plurality of line-of-sight integrated measurements.  However, there are a number of issues that plague a straight-forward application of the method as described.  Without substantial effort to phase lock measurements each sampled current can not strictly be said to occur at a specific angle of the disc and wire.  Certainly this and developing an interpolation scheme to estimate values at angles between measurements are solvable problems, but it is not entirely clear what artifacts they may produce in the presence of noise.
+
+Instead, we will adopt the more general problem: what field values of $J_D(x,y)$ minimize the error between many individual wire current measurements and wire currents calculated from the $J_D(x,y)$ field?  As we see in Figure \ref{fig:coordinate}, wire current, $I(s,\theta)$, can be said to be a function of the center of rotation and the disc's angle.  The fundamental problem is to calculate a field of values for $J_D$ from many values of $I$.  This approach takes advantage of how easily $I$ can be calculated from $J_D$, and makes no presumption that the signals are free of noise.
+
+The error due to each measurement, $I_k(s_k, \theta_k)$, may be calculated
+\begin{subequations}\label{eqn:ek}
+\begin{align}
+e_k &= - I_k\left(s_k, \theta_k\right) + \pi D_w \int_0^R J_D\left(x(r), y(r)\right) \mathrm{d} r\\
+x(r) &= -s_k + r\cos(\theta_k)\\
+y(r) &= r\sin(\theta_k)
+\end{align}
+\end{subequations}
+When we use the method of least squares, we obtain a total error metric
+\begin{align}
+E^2 = \sum_k e_k{^2}.
+\end{align}
+
+When $J_D$ is to be calculated over a uniform $x,y$ grid with spacing, $h$, our problem may be said to contain $N_n$ nodes forming $N_e$ $h\times h$ square elements.  When there are $N_x$ $x$-values and $N_y$ $y$-values represented in the nodes,
+\begin{align}
+N_n &= N_x N_y\\
+N_e &= (N_x -1)(N_y -1).
+\end{align}
+
+If $J_{D,n}$ is the value of $J_D$ for node $n$, then our choices for all $J_{D,n}$ will be optimal when
+\begin{align}
+\frac{\partial E^2}{\partial J_{D,n}} = 0
+\end{align}
+for all $n$.  This represents a system of $N_n$ constraints on $N_n$ parameters.  It now remains to establish how to evaluate the integral of Equation \ref{eqn:ek}.  Because this is a matter of some nuance, we will devote the following sections to it.

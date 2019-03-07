@@ -1,0 +1,42 @@
+\section{Line Segments}\label{sec:segments}
+
+The wire's path in space and the bounds on an element's regime in space is accomplished by defining line segments.  In the case of elements, the four segments defining their boundary are simply defined by connecting the nodes.  In the case of the wire, the wire may be imagined to extend to the center of rotation and extend some finite length at some angle relative to the $x$-axis.
+
+It is convenient to define a line segment by a point, $\p_0$, and a direction, $\Delta \p$.  Therefore, the line segment is defined as
+\begin{align}
+\p(s) = \p_0 + s \Delta \p \ \forall \ s\in[0,1].
+\end{align}
+Negative values of $s$ and values greater than 1 represented points projected beyond the bounds of the line segment.  
+
+To calculate the location of an intersection between two line segments, $a$ and $b$,
+\begin{align}
+\p_a(s_a) &= \p_{0,a} + s_a \Delta \p_a\nonumber\\
+\p_b(s_b) &= \p_{0,b} + s_b \Delta \p_b\nonumber,
+\end{align}
+we need only set the points $\p_a$ and $\p_b$ equal and solve for $s_a$ and $s_b$.  The problem is equivalent to
+\begin{align}
+\p_{0,b} - \p_{0,a} &= \left[\Delta \p_a,\ \Delta \p_b\right] \cdot \left[s_a,\ s_b\right]^T
+\end{align}
+or, in terms of the individual $x$ and $y$ components,
+\begin{align}
+\left[\begin{array}{c}
+x_{0,b} - x_{0,a}\\
+y_{0,b} - y_{0,b}
+\end{array}\right] &= 
+\left[\begin{array}{cc}
+\Delta x_a & -\Delta x_b\\
+\Delta y_a & -\Delta y_b
+\end{array}\right]\left[\begin{array}{c}
+s_a \\
+s_b
+\end{array}\right]
+\end{align}
+
+There are five cases that need to be handled by codes that look for segment intersections:
+\begin{enumerate}
+\item If the determinant of the matrix, $\Delta x_b \Delta y_a - \Delta x_a \Delta y_b$ is zero, then the segments are parallel, and there is no solution,
+\item If $0 \le s_a \le 1$ and $0 \le s_b \le 1$ then the segments intersect,
+\item If $0 \le s_a \le 1$ but not $s_b$, then a projection of segment $b$ intersects segment $a$,
+\item If $0 \le s_b \le 1$ but not $s_a$, then a projection of segment $a$ intersects segment $b$,
+\item If neither $s_a$ nor $s_b$ is between 0 and 1, then only the projections of the segments intersect.
+\end{enumerate}
