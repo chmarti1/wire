@@ -32,15 +32,12 @@ This approach would be akin to the Abel transformation used to infer an axis-sym
 Instead, we will adopt a more general problem: what field values of $J_D(x,y)$ minimize the error between many individual wire current measurements and wire currents calculated from the $J_D(x,y)$ field?  While this preliminary statement makes no presumption on how the wire measurements were taken, as we see in Figure \ref{fig:coordinate}, wire current, $I(s,\theta)$, can be said to be a function of the center of rotation and the disc's angle.  The fundamental problem is to calculate field values for $J_D$ from many values of $I$.  This approach takes advantage of how easily $I$ can be calculated from $J_D$, makes no presumption that the signals are free of noise, and permits a disorganized cloud of individual measurements.
 
 The error due to each measurement, $I_k(s_k, \theta_k)$, may be calculated
-\begin{subequations}\label{eqn:ek}
 \begin{align}
-e_k &= - I_k\left(s_k, \theta_k\right) + \pi D_w \int_0^R J_D\left(\vec{p}_k(r)\right) \mathrm{d} r\\
-\vec{p}_k(r) &= [x_k(r),\ y_k(r)]^T = [-s_k + r\cos(\theta_k),\ r\sin(\theta_k)]^T\\
+e_k &= - I_k\left(s_k, \theta_k\right) + \pi D_w \int_0^R J_D\left(\vec{p}_k(r)\right) \mathrm{d} r\label{eqn:ek}\\
+\vec{p}_k(r) &= [x_k(r),\ y_k(r)]^T = [-s_k + r\cos(\theta_k),\ r\sin(\theta_k)]^T \nonumber
 \end{align}
-\end{subequations}
 When we use the method of least squares, we obtain a total error metric
 \begin{align}
 E^2 = \sum_k e_k{^2}.
 \end{align}
-
-
+Now, we turn our attention to how the field of values for $J_D$ should be constructed.

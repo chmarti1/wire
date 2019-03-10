@@ -1,21 +1,21 @@
 \section{Integration}\label{sec:integral}
 
-If $J_D$ is to be calculated over a uniform $x,y$ grid with spacing, $\delta$, our problem may be said to contain $N_n$ nodes forming $N_e$ $\delta\times \delta$ square elements.  When there are $N_x$ $x$-values and $N_y$ $y$-values represented in the nodes,
+We will calculate values of $J_D$ at nodes with uniform spacing, $d$ in both $x$ and $y$ directions.  Though the choice of uniform spacing is not mandatory for this approach, it simplifies matters while sacrificing little generality.  Our problem may be said to contain $N_n$ nodes forming $N_e$ $\delta\times \delta$ square elements when the array of nodes contains $N_x$ $x$-values and $N_y$ $y$-values, and
 \begin{align}
 N_n &= N_x N_y\\
 N_e &= (N_x -1)(N_y -1).
 \end{align}
-Nodes may be indexed either sequentially (using index $n$) from left-to-right and then bottom-to-top, or by $x$- and $y$-indices (using indices $i$ and $j$).  The equivalent coordinates may be found
+Nodes may be indexed either sequentially (using index $n$) from left-to-right and then bottom-to-top, or by $x$- and $y$-indices (using indices $i$ and $j$).  The equivalent indices may be found
 \begin{align}
 n &= jN_x + i\\
 j &= \mathrm{floor}(n/N_x)\\
 i &= n - jN_x
 \end{align}
-when $n \in [0, N_n-1]$, $i \in [0, N_x-1]$, and $j \in [0, N_y-1]$.
+when $n \in [0, N_n-1]$, $i \in [0, N_x-1]$, and $j \in [0, N_y-1]$.  
 
-Elements may be numbered to match the index of the node in the bottom-left corner, but it is important to note that the top and right-most elements will not be valid since they will be missing nodes.
+We will take $\X$ to be a vector of all node values for $J_D$, which can be indexed either in sequential order, $X_n$, or by $x$- and $y$-indices, $X_{i,j}$.  Elements are numbered to match the index of the node in the bottom-left corner, so that $X_n$ is the bottom-left value of element $(n)$.  However, it is important to note that the top- and right-most elements cannot be evaluated since they will be missing nodes.
 
-We will take $\X$ to be a vector of all node values for $J_D$, which can be indexed either in sequential order, $X_n$, or by $x$- and $y$-indices, $X_{i,j}$.  Our choices for all $\X$ will be optimal when
+When our choices for all $\X$ are optimal,
 \begin{align}
 0 &= \frac{\partial E^2}{\partial X_n} \nonumber\\
 & = \sum_k 2 e_k\frac{\partial e_k}{X_n} \nonumber\\
@@ -54,7 +54,7 @@ Using the element-scaled coordinate system, the interpolation functions are
 \phi_{11} &= \hat{x}\hat{y}
 \end{align}
 \end{subequations}
-and may be more compactly written $\phi(\hat{\p})$.
+and may be more compactly written $\phi(\hat{\p})$.  Note that each $\phi$ is unity when $\hat{\p}$ is at its respective node, but declines to zero at all other nodes.
 
 \subsection{Line Segments}\label{sec:segments}
 
@@ -66,7 +66,7 @@ It is convenient to define a line segment by a starting point, $\p_0$, and a dir
 \end{align}
 Negative values of $s$ and values greater than 1 represented points projected beyond the bounds of the line segment.  The value of $s$ is related to the distance along the segment, $r$, by
 \begin{align}
-r = s \left| \Delta \p \right|.
+r = s \| \Delta \p \|.
 \end{align}
 
 To calculate the location of an intersection between two line segments, $a$ and $b$,
