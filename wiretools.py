@@ -43,7 +43,6 @@ segments are parallel, then sA and sB are returned as None.
         a = np.zeros((2,2))
         a[:,0] = self.dv[:]
         a[:,1] = -B.dv[:]
-        if np.linalg.det(
         
         b = B.v0 - self.v0
         try:
@@ -78,10 +77,80 @@ def LSstop(p0, p1):
 #=================#
 
 class Grid:
-    def __init__(self, Nx, Ny, h):
-        self.Nx = Nx
-        self.Ny = Ny
-        self.h = h
-        # if Ny is not odd
-        if not (self.Ny & 0x01):
-            raise Exception('Grid: Ny must be odd.')
+    def __init__(self, Nx, Ny, delta):
+        self._Nx = int(Nx)
+        self._Ny = int(Ny)
+        self._delta = float(delta)
+        self._yoffset = -self._delta * self._Ny / 2
+    
+    def node_from_xy(self, i,j):
+        """Calculates the node index from the xy indices
+    n = G.node_from_xy(i,j)
+"""
+        return self.Nx * j + i
+        
+    def xy_from_node(self, n):
+        """Calculates the xy indices from the node index
+    i,j = G.xy_from_node(n)
+"""
+        n = int(n)
+        j = n / self.Nx
+        i = n - self.Nx*j
+        return i,j
+        
+    def node_shape(self):
+        """Returns the grid dimensions 
+    Nx, Ny = G.node_shape()
+    
+Nx and Ny are the number of nodes horizontally and vertically.
+"""
+        return self.Nx, self.Ny
+        
+    def node_size(self):
+        """Returns the number of nodes
+    Nn = G.node_size()
+
+Nn is the number of nodes in the grid.
+"""
+        return self.Nx * self.Ny
+        
+    def element_size(self):
+        """Returns the number of elements
+    Ne = G.get_element_size()
+
+Ne is the number of elements in the grid
+"""
+        return (self.Nx - 1)*(self.Ny - 1)
+        
+    def node_coord(self, i, j=None):
+        """Return the x,y coordinates of a node
+    x,y = G.node_coord(n)
+        OR
+    x,y = G.node_coord(i,j)
+    
+If only one index is given, then it is interpreted as sequential node
+indexing.  If two indices are given, then they are interpreted as x-y 
+indices.
+"""
+        if j is None:
+            i,j = self.xy_from_node(i)
+        return i*self._delta, self._yoffset+j*self._delta
+
+    def a_from_rdt(self, R, d, theta):
+        """Calculate the "accumulation" vector from the wire parameters
+    a = G.a_from_rdt(self, R, d, theta)
+    
+R is the wire radius from the center of rotation
+d is the distance between the center of rotation and the left-most node
+theta is the wire angle from positive x in radians
+"""
+        # Search for the point where the wire first crosses the grid
+        gridLS = LSstop(self.node_coord(0,0), self.node_coord(0,self._Ny-1))
+        wireLS = LSrtheta((-d,0), R, theta)
+        sw, sg = wireLS.intersect(gridLS)
+        # If the segments do not intersect, just return zeros
+        if sg is None or sg < 0 or sg > 1 or sw is None or sw < 0 or sw > 1:
+            return np.zeros((self.node_size(),), dtype=float)
+            
+        # Calculate which element 
+            

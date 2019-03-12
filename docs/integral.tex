@@ -159,25 +159,4 @@ Finally, we may construct the integral of $J_D$ and its derivatives in terms of 
 \end{align}
 \end{subequations}
 
-\subsection{Numerical formulation}\label{sec:numerical}
-
-Thanks to Equations \ref{eqn:JDPhi:all}, it is now possible to write the $N_n$ equations represented by Equation \ref{eqn:dEdJ} as a linear combination of the node values.  For this, we revert back to indexing nodes in sequential order.
-
-The integrals of interest are of $J_D$ and is sensitivity to each node value, integrated along the wire's path through the entire domain.  We have shown in the previous section, how these integrals can be computed within a single element, but to calculate the integrals in total, the terms of all of the contributing elements need to be accumulated.
-\begin{align}
-\int_0^R J_D(\p(r)) \mathrm{d}r &= \sum_n \int_{(n)}J_D \mathrm{d}r = \a \cdot \X\\
-\int_0^R \frac{\partial J_D(\p(r))}{\partial X_n} \mathrm{d}r &= \sum_m \int_{(m)} \frac{\partial J_D(\p(r))}{\partial X_n} \mathrm{d}r = \a
-\end{align}
-Here, $\a$, is a vector where $a_n$ is a sum of all the $\|\Delta \p\| \Phi$ terms associated with node $X_n$ from all elements.  There will be a maximum of four contributing elements for each node.
-
-The least squares approach results in two terms; one linearly dependent on the node values, and one that is only a function of the measurements, $I_k$, against which the nodes are being optimized.  
-\begin{align}
-\sum_k \frac{I_k}{2\pi D_w} \int_0^R \frac{\partial J_D(r)}{\partial X_n} \mathrm{d}r &= \sum_k \pi D_w \int_0^R J_D(r) \mathrm{d}r \int_0^R \frac{\partial J_D(\zeta)}{\partial X_n} \mathrm{d}\zeta \nonumber\\
-\sum_k \frac{I_k}{2\pi D_w} a_n & = \sum_k a_n \hat{a} \cdot \X
-\end{align}
-The index, $k$ refers to each measurement, for which there will be a unique wire path, and subsequently unique values for $\Phi$.  As a result, the $\a$ vectors need to be re-calculated for each value of $k$.  Therefore, we may finally write the problem as a matrix inversion problem.
-\begin{align}
-\sum_k \frac{I_k}{2\pi D_w} \a_k = \left[\sum_k \a\a \right] \cdot \X
-\end{align}
-
 
