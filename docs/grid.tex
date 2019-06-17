@@ -1,6 +1,6 @@
-\section{Integration}\label{sec:integral}
+\section{Grid}\label{sec:grid}
 
-We will calculate values of $J_D$ at nodes with uniform spacing, $d$ in both $x$ and $y$ directions.  Though the choice of uniform spacing is not mandatory for this approach, it simplifies matters while sacrificing little generality.  Our problem may be said to contain $N_n$ nodes forming $N_e$ $\delta\times \delta$ square elements when the array of nodes contains $N_x$ $x$-values and $N_y$ $y$-values, and
+We will estimate values of $J_D$ at nodes with uniform spacing, $\delta$ in both $x$ and $y$ directions.  Though the choice of uniform spacing is not mandatory for this approach, it simplifies matters while sacrificing little generality.  Our problem may be said to contain $N_n$ nodes forming $N_e$ $\delta\times \delta$ square elements when the array of nodes contains $N_x$ $x$-values and $N_y$ $y$-values, and
 \begin{align}
 N_n &= N_x N_y\\
 N_e &= (N_x -1)(N_y -1).
@@ -13,39 +13,47 @@ i &= n - jN_x
 \end{align}
 when $n \in [0, N_n-1]$, $i \in [0, N_x-1]$, and $j \in [0, N_y-1]$.  
 
+This indexing scheme is depicted in Figure \ref{fig:indexing} with six columns and five rows of nodes.
+\begin{figure}
+\begin{center}
+\includegraphics{indexing}
+\caption{An example demonstrating the indexing schemes for nodes.}\label{fig:indexing}
+\end{center}
+\end{figure}
+
 We will take $\X$ to be a vector of all node values for $J_D$, which can be indexed either in sequential order, $X_n$, or by $x$- and $y$-indices, $X_{i,j}$.  Elements are numbered to match the index of the node in the bottom-left corner, so that $X_n$ is the bottom-left value of element $(n)$.  However, it is important to note that the top- and right-most elements cannot be evaluated since they will be missing nodes.
 
-When our choices for all $\X$ are optimal,
+Once we have applied some interpolation scheme for approximating values of $J_D$, the integral of Equation \ref{eqn:ek} will be expressible as a vector dot product,
+\begin{align}
+\int_0^R J_D(r, d, \theta)\d r = \Lam(R, d, \theta) \cdot \X \label{eqn:lambda}
+\end{align}
+Though we have not yet established a means for calculating $\Lam$, when our choices for all $\X$ are optimal,
 \begin{align}
 0 &= \frac{\partial E^2}{\partial X_n} \nonumber\\
 & = \sum_k 2 e_k\frac{\partial e_k}{X_n} \nonumber\\
-&= \sum_k \left(-I_k + \pi D_w \int_0^R J_D(\p_k(r)) \mathrm{d}r \right)\int_0^R \frac{\partial J_D(\p_k(\zeta))}{\partial X_n}\mathrm{d}\zeta\label{eqn:dEdJ}
+&= \sum_k \left(-I_k + \pi D_w \int_0^R J_D(r, d_k, \theta_k) \mathrm{d}r \right)\int_0^R \frac{\partial J_D(r, d_k, \theta_k)}{\partial X_n} \d r\nonumber\\
+&= -\sum_k I_k \Lam_k + \pi D_w \left[\sum_k \Lam_k \Lam_k\right] \cdot \X \label{eqn:lsqr}
 \end{align}
-for all $n$.
 
-There are two integrals that need to be evaluated in order to satisfy Equation \ref{eqn:dEdJ}:
-\begin{align}
-\int_0^R J_D(\p) \mathrm{d}r & & \int_0^R \frac{\partial J_D}{\partial X_n} \mathrm{d}r\nonumber
-\end{align}
-For a given measurement $k$, the wire's trajectory through the domain will only pass through a minority of the elements, so if we can develop a scheme for calculating these quantities in a single element, we may sum the results to obtain the total integral.
+This represents a matrix inversion problem for the calculation of the node values, $\X$.  All that remains is to develop a means of calculating the interpolation vectors, $\Lam_k$ = $\Lam(R,d_k,\theta_k)$, for a wire of radius, $R$, center of rotation, $d_k$, and angle, $\theta_k$.  In this way, there is a separate $\Lam$ vector for each raw measurement, $k$.
 
 \subsection{Interpolation}\label{sec:interpolate}
 
-Recall that we have defined the value $X_n$ at nodes, which form the corners of elements.  Rather than sequentially, we might alternately index the nodes by their location in the $x,y$ grid, $X_{i,j}$.  Each element is a finite domain in $x,y$ space over which we may estimate the continuous function, $J_D(\p)$, by linear interpolation of the node values.  
+Each element is a finite domain in $x,y$ space over which we may estimate the continuous function, $J_D$, at a point, $\p = [x,y]^T$, by linear interpolation of the node values.  
 \begin{align}
 J_D(\p) &= \nonumber\\
  &X_{i,j}\,\phi_{00} (\p) + X_{i+1,j}\,\phi_{10} (\p) + \dots\nonumber\\
  &X_{i,j+1}\,\phi_{01} (\p) + X_{i+1,j+1}\,\phi_{11} (\p)
 \end{align}
-when the $\phi$ functions are interpolation functions.  
+when the $\phi$ functions are interpolation functions which we must define.  Note that this is only valid when $\p$ lies within the element, so $x_i \le x \le x_{i+1}$ and $y_j \le y \le y_{j+1}$.
 
-A formulation of the interpolation functions is facilitated by using a scaled coordinate system, $\hat{x} = (x-x_i) / \delta$, $\hat{y} = (y-y_j)/\delta$, or
+A formulation of the interpolation functions is facilitated by using a scaled coordinate system, $\hat{x} = (x-x_i)/(x_{i+1} - x_i)$, $\hat{y} = (y-y_j)/(y_{j+1} - y_j)$, or
 \begin{align}
-[\hat{x}, \hat{y}]^T = \hat{\p} = \frac{\p - \p_n}{\delta},
+[\hat{x}, \hat{y}]^T = \hat{\p} = \frac{\p - \p_{i,j}}{\delta},
 \end{align}
 This constitutes a coordinate system with its origin at the bottom-left most node in the element (node $n$ or equivalently node $i,j$) extending to $\hat{x}=1$ at its right-most, and $\hat{y} = 1$ at its top most extent.  These interpolation functions are \emph{only} valid in that range.
 
-Using the element-scaled coordinate system, the interpolation functions are
+For the interpolated values for $J_D$ to agree with the node values at the verticies, each interpolation function must be one at its own node and zero at the other three.  This implies four constraints on each interpolation function, permitting a four-term $x,y$ polynomial.  Using the element-scaled coordinate system, the resulting interpolation functions are
 \begin{subequations}
 \begin{align}
 \phi_{00} &= (1-\hat{x})(1-\hat{y})\\
@@ -110,30 +118,28 @@ For line segments expressed within an element's dimensionless coordinate system,
 \end{align}
 This alternate formulation for a line segment is simply re-scaled by the elements size and offset by its bottom-left element's coordinates.
 
-\subsection{Integration within an element}\label{sec:element}
+\subsection{Calculating $\Lam$}\label{sec:lambda}
 
-We have established that the integrals from Equation \ref{eqn:dEdJ} will be evaluated over each element, we have established a description for how $J_D$ should be evaluated as a field variable within the element, and we have established how we will formulate paths through space.
-
-For a given wire location, elements may fall into three categories:
+Equation \ref{eqn:lsqr} reduces the deconvolution problem to a matrix inversion in terms of sums of $\Lam_k = \Lam(R,d_k,\theta_k)$ defined in Equation \ref{eqn:lambda}.  Here, we use the interpolation functions to calculate $\Lam$ for the $k$ data point with the disc center of rotation at $x=-d_k$, and the wire at an angle, $\theta_k$.  For each such wire location, elements may fall into three categories:
 \begin{enumerate}
 \item Elements through which the wire does not pass,
 \item Elements with the wire passing through two faces,
 \item An element with the wire passing through only one face.
 \end{enumerate}
-The first will constitute the vast majority of elements for any given wire location and do not contribute to the integral.  The only element that will be of the last type will contain the wire tip.  The last two types will need to be evaluated using the approach here.
+The first will constitute the vast majority of elements for any given wire location and do not contribute to the integral.  In this approach, we will consider each element that contains a segment of the wire, and we will accumulate their contributions to $\Lam$.
 
-The integration of $J_D$ within the element will contain contributions from the four nodes that form its limits,
+The integration of $J_D$ over only the $n$ element will contain contributions from the four nodes that form its limits,
 \begin{align}
-\int_{(n)} J_D \mathrm{d} r &= X_{i,j} \int_{(n)} \phi_{00} \mathrm{d} r + X_{i+1,j} \int_{(n)} \phi_{10} \mathrm{d} r + \ldots \\
+\int_{(n)} J_D \mathrm{d} r &= X_{i,j} \int_{(n)} \phi_{00} \mathrm{d} r + X_{i+1,j} \int_{(n)} \phi_{10} \mathrm{d} r + \ldots \nonumber\\
 &\ X_{i,j+1} \int_{(n)} \phi_{01} \mathrm{d} r + X_{i+1,j+1} \int_{(n)} \phi_{11} \mathrm{d} r \label{eqn:intJD:element}
 \end{align}
 
-Note that we have been quite deliberately vague with regard to the bounds on the integrals over $r$.  The integrals should be constructed to be over the section of the wire line segment that lies inside the element.  We could carefully construct a notation for values of $r$ that lie in this range, but we shall opt for the functional (albeit lazier) approach of merely using $(n)$ for this purpose.  
-
-For each of the integrals presumed to be limited to element $n$, we may translate the bounds to an integral on $s$,
+Note that we have been quite deliberately vague with regard to the bounds on the integrals over $r$.  Once we have isolated a line segment, $\p(s)$, within element $n$, each integral may be rescaled to be in terms of $s$,
 \begin{align}
 \int_{(n)} \phi \mathrm{d}r = \|\Delta\p\| \int_0^1 \phi(\hat{p}(s)) \mathrm{d} s.
 \end{align}
+since $\d r = \|\Delta \p\| \d s$.
+
 So, the four interpolation function integrals are
 \begin{subequations}
 \begin{align}
@@ -148,15 +154,16 @@ So, the four interpolation function integrals are
 \end{align}
 \end{subequations}
 
-Finally, we may construct the integral of $J_D$ and its derivatives in terms of these $\Phi$ formulae.
-\begin{subequations}\label{eqn:JDPhi:all}
+Finally, we may construct $\Lam$ in terms of these $\Phi$ formulae.  Here, the contribution to each $\Lam$ element from only element $n$ is
+\begin{subequations}\label{eqn:lambda:n}
 \begin{align}
-&\int J_D \mathrm{d}r = \|\Delta \p\| \left( X_{i,j} \Phi_{00} + X_{i+1,j} \Phi_{10} + X_{i,j+1} \Phi_{01} + X_{i+1,j+1} \Phi_{11} \right)\\
-&\int \frac{\partial J_D}{\partial X_{i,j}} \mathrm{d} r = \|\Delta \p\| \Phi_{00}\\
-&\int \frac{\partial J_D}{\partial X_{i+1,j}} \mathrm{d} r = \|\Delta \p\| \Phi_{10}\\
-&\int \frac{\partial J_D}{\partial X_{i,j+1}} \mathrm{d} r = \|\Delta \p\| \Phi_{01}\\
-&\int \frac{\partial J_D}{\partial X_{i+1,j+1}} \mathrm{d} r = \|\Delta \p\| \Phi_{11}
+\Lambda_{i,j}^{(n)} &= \|\Delta \p\| \Phi_{00}\\
+\Lambda_{i+1,j}^{(n)} &= \|\Delta \p\| \Phi_{10}\\
+\Lambda_{i,j+1}^{(n)} &= \|\Delta \p\| \Phi_{01}\\
+\Lambda_{i+1,j+1}^{(n)} &= \|\Delta \p\| \Phi_{11}
 \end{align}
 \end{subequations}
-
-
+and zero otherwise.  The total $\Lam$ vector is constructed by summing these values contributed from all the elements.
+\begin{align}
+\Lambda_{i,j} = \sum_n \Lambda_{i,j}^{(n)}
+\end{align}
