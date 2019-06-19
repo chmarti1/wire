@@ -4,6 +4,7 @@
 
 import numpy as np
 from scipy import sparse
+import os, sys
 
 
 #=======================#
@@ -340,8 +341,6 @@ theta is the wire angle from positive x in radians
         
         # Keep looping until the wire path through the grid is finished
         while True:
-            print ii,jj,fstart
-            print pstart
             
             p00, p10, p01, p11 = self.element(ii,jj)
             
@@ -419,3 +418,50 @@ theta is the wire angle from positive x in radians
                 break
         
         return sparse.csr_matrix(L)
+
+
+
+class DataSet:
+    """The DataSet class interacts with raw data files to build a grid and a 
+solution vector.  The DataSet methods allow the application to calculate
+and manipulate the solution.
+
+>>> DS = DataSet('/path/to/data')
+"""
+    def __init__(self, datadir):
+        # Identify the data directory
+        self.datadir = os.path.abspath(datadir)
+        
+        configfile = os.path.join(self.datadir, 'wireconf.py')
+        self.config = {}
+        
+        if not os.path.isfile(configfile):
+            raise Exception('Could not find configuration file\n' + self.config['file'])
+        
+        # Parse the configuration file
+        try:
+            with open(configfile,'r') as ff:
+                exec(ff.read(), None, self.config)
+        except:
+            raise Exception('Failed to load the configuration file: ' + configfile)
+        
+        # Generate the grid
+        self.grid = Grid(self.config['grid_Nx'], 
+                self.config['grid_Ny'], self.config['grid_delta'])
+
+        # Generate a result vector
+        self.X = sparse.lil_matrix((self.grid.size(),1), dtype=float)
+        
+        
+
+    def __getitem__(self, key):
+        if isinstance(key,tuple):
+            return self.X[self.grid.ij_to_n(*key),0]
+        return self.X[key,0]
+
+
+    def __setitem__(self,key,value):
+        if isinstance(key,tuple):
+            self.X[self.grid.ij_to_n(*key),0] = value
+        else:
+            self.X[key,0] = value
