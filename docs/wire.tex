@@ -1,23 +1,141 @@
-\documentclass[11pt]{article}
+\documentclass{article}
 
 \usepackage{amsmath}
 \usepackage{graphicx}
 
-\def\p{\vec{p}}
-\def\X{\vec{X}}
-\def\Lam{\vec{\Lambda}}
-\def\a{\vec{a}}
+\def\I{\overline{I}}
 \def\d{\mathrm{d}}
+\def\real{\mathrm{Re}}
+\def\imag{\mathrm{Im}}
 
-\title{Spatially resolved ion density measurements in atmospheric oxyfuel flames using a spinning disc Langmuir probe}
-\author{C. R. Martin\\Assistant Professor of Mechanical Engineering\\Penn State Altoona}
+\title{A Brief Derivation for Spatial DFT Extraction from Langmuir Probe Currents}
+\author{Christopher R. Martin\\Associate Professor of Mechanical Engineering\\Penn State Altoona}
 \date{\today}
 
 \begin{document}
+
 \maketitle
-\input{intro}
-\input{speed}
-\input{current}
-\input{grid}
+
+\section{Derivation}
+
+The probe wire has radius, $R$, and rotates about a center on the $x$-axis a distance, $d$, from the origin.  At each sample, the probe will have an angle, $\theta$, will enter the domain at radius, $R_0$, and terminates at a radius, $R_1$.  The current measured by the probe, $I$, is an integral of the current per unit wire length, $\I(r)$,
+\begin{align}
+I = \int_{R_0}^{R_1} \I(r) \d r.
+\end{align}
+These dimensions are shown in Figure \ref{fig:coords}.  When the tip of the wire lies inside the domain, $R_1 = R$.
+
+\begin{figure}
+\centering
+\includegraphics[width=.9\linewidth]{figures/coords}
+\caption{Dimensions and coordinate system for the domain}\label{fig:coords}
+\end{figure}
+
+In the previous work, $\I$, was calculated as a grid of discrete nodes, and its values along the probe length.  This approach is flexible and intuitive, but inverting this integral for an arbitrary wire location requires a relatively expensive interpolation through each grid square the wire occupies.  
+
+In the present work, we adopt a spatial Fourier series, which provides a far more numerically elegant formulation.
+
+\subsection{Fourier series}
+
+The Fourier series for $\I$ is constructed in $x,y$ coordinates
+\begin{align}
+\I(x,y) &= \real \sum_{m=0}^{N_x} \sum_{n=0}^{N_y} c_{m,n} \exp\left(2\pi j \left(\frac{mx}{L_x} + \frac{ny}{L_y}\right)\right).
+\end{align}
+Because $c_{m,n}$ is complex (except for $c_{0,0}$), this formulation has $2(N_x+1)(N_y+1)-1$ independent coefficients, and represents a function with periodicity $L_x$ on $x$ and $L_y$ on $y$.  It is continuous, but can only resolve features on the scale $L_x / N_x$ and $L_y / N_y$.  In this way, it has an effective resolution determined by the $N$ values, not entirely unlike a grid resolution.
+
+\subsection{Evaluating the integral}
+
+The integral of $\I$ requires an $x,y$ parametric formulation of the wire's path.  In this derivation, a number of trigonometric functions will be required, so for compactness of notation, 
+\begin{align}
+s_\theta &\equiv \sin(\theta)\\
+c_\theta &\equiv \cos(\theta)
+\end{align}
+
+If $r$ is the distance along the wire from the disc center,
+\begin{align}
+x &= r c_\theta - d\\
+y &= r s_\theta\\
+R_0 &= \frac{d}{c_\theta}\\
+R_1 &= \min\left(\ R,\ \frac{d + L_x}{c_\theta},\ \left|\frac{L_y}{2s_\theta}\right|\ \right)\\
+\Delta R &= R_1 - R_0.
+\end{align}
+The integral is a sum of surface currents along the wire's length at moment in time, so the disc position parameters, $d$ and $\theta$, are frozen in time for the purposes of this integral.  Therefore, for compactness of notation, it will become convenient to express the trigonometric functions on $\theta$ as constants, $c_\theta$ and $s_\theta$.
+
+A single term of the Fourier series appears
+\begin{align*}
+&c_{m,n} \exp\left(2\pi j \left( \frac{m(r c_\theta - d)}{L_x} + \frac{n r s_\theta}{L_y} \right)\right)\\
+&= c_{m,n} \exp\left(-2\pi j \frac{md}{L_x} \right) \exp\left(2\pi j \left( \frac{m c_\theta}{L_x} + \frac{n s_\theta}{L_y} \right) r\right)\\
+&= c_{m,n} \exp\left(-2\pi j \frac{md}{L_x} \right) \exp\left(2\pi j k r \right)
+\end{align*}
+The \emph{wavenumber}, $k$, is the frequency (in units 1/length) along the wire's path.  It's definition is
+\begin{align}
+k = \frac{m c_\theta}{L_x} + \frac{n s_\theta}{L_y}.
+\end{align}
+
+For an integral over $r$, all but the last portion of the term above is constant, for the time being, we may consider only the portion containing $r$,
+\begin{align}
+\int_{R_0}^{R_1} \exp\left(2\pi j k r \right) \d r = \left\{\begin{array}{c|l}
+ \Delta R & m = n = 0\\
+ \frac{1}{2\pi j k}\left[\exp\left(2\pi j k r \right)\right]^{R_1}_{R_0} & \mathrm{otherwise}.
+\end{array}
+\right.
+\end{align}
+
+For compactness of notation, we define the complex wire integral,
+\begin{align}
+\gamma_{m,n}(d,\theta) = \frac{1}{2\pi k}\exp\left(-2\pi j \frac{md}{L_x}\right) \Bigl( \exp(2\pi j k R_1) - \exp(2\pi j k R_0) \Bigr).
+\end{align}
+When we express the complex coefficient, $c_{m,n}$ in its real and imaginary parts,
+\begin{align}
+c_{m,n} = a_{m,n} + j b_{m,n},
+\end{align}
+this yields an expression for the total wire current
+\begin{align}
+I(d,\theta) &= a_{0,0} \Delta R(d,\theta) + \sum_{m,n\ne 0}^{N_x,N_y} a_{m,n} \real \left\{ \gamma_{m,n}(d,\theta) \right\} - b_{m,n} \imag \left\{ \gamma_{m,n}(d,\theta) \right\}
+\end{align}
+
+The wavenumber, $k$, is repeated here for convenience.  Of course, $\gamma$ could be expressed in terms of sines and cosines, but that is neither cleaner notation, nor more numerically convenient, so we elect to leave the formulation in complex components.
+
+\subsection{Offset current}
+
+Every experiment begins by zeroing the current signal to the nearest practical precision, but no real signal will ever be perfectly zero to numerical precision.  In most applications, this is not especially problematic, but the derivation above makes no allowance for any component of current signal that appears on portions of the wire where $x$ is negative.  For this reason, it is prudent to add a global offset parameter, $b_{0,0}$, which is intended to be a small current that is present everywhere.  
+\begin{align}
+I(d,\theta) &= a_{0,0} \Delta R(d,\theta) + b_{0,0} + \sum_{m,n\ne 0}^{N_x,N_y} a_{m,n} \real \left\{ \gamma_{m,n}(d,\theta) \right\} - b_{m,n} \imag \left\{ \gamma_{m,n}(d,\theta) \right\} \label{eqn:I}
+\end{align}
+
+Note that $b_{0,0}$ is distinct from $a_{0,0}$ because its contribution to the measured wire current is independent of $d$ and $\theta$.  The difference is that currents due to $c_{0,0}$ are only applied to the portions of the wire that are in the domain.  As the wire progresses deeper into the domain, $c_{0,0}$ will cause the integrated current to rise, but an offset signal will be present in the measurements everywhere.
+
+With the addition of $I_0$, there are $2(N_x+1)(N_y+1)$ coefficients that need to be calculated.
+
+\section{Inversion}
+
+Fourier transforms classically take advantage of the orthogonality of the sinusoidal basis functions, so the original signal only needs to be integrated against each basis function over the entire domain to calculate the magnitude and phase of that component.  However, because no single wire position spans the entire domain, this approach is not tenable.
+
+Instead, we benefit from the fact that the unknown parameters are linear coefficients.  If they were to be serialized in a vector, $\vec{x}$, the problem lends itself to a simple least-squared approach.  The scheme used to organize the coefficients in $\vec{x}$ is not especially important, but it might be something along the lines of 
+\begin{align}
+\vec{x} = \{a_{0,0},\ b_{0,0},\ a_{1,0},\ b_{1,0},\ a_{2,0},\ b_{2,0},\ \ldots \}^T.
+\end{align}
+Regardless of the approach, each element of $\vec{x}$ corresponds to a unique combination of $m$ and $n$.  
+
+When the terms of (\ref{eqn:I}) are embedded into a second vector, $\vec{\Lambda}$, the equation may be rewritten
+\begin{align}
+I(d,\theta) = \vec{\Lambda}(d,\theta) \cdot \vec{x}.
+\end{align}
+Here, $\vec{\Lambda}$, is a vector that models the contribution of each coefficient to the current of a wire in location $d,\theta$.
+
+For a given wire position, $d_i, \theta_i$, there will be a measured current, $I_i$.  For a given coefficient set, there will be an error,
+\begin{align}
+e_i = I_i - \vec{\Lambda}_i \cdot \vec{x}.
+\end{align}
+In a least squares approach, we differentiate the sum of the squares of errors for each of the data points.  For compactness of notation, it will be convenient to abbreviate $\vec{\Lambda}_i = \vec{\Lambda}(d_i, \theta_i)$ moving forward.
+
+\begin{align}
+\vec{0} = \nabla \sum e_i {^2} = \sum 2(I_i - \vec{\Lambda}_i \cdot \vec{x})(- \vec{\Lambda}_i)
+\end{align}
+Solving for $\vec{x}$,
+\begin{align}
+\vec{x} = \left(\sum \vec{\Lambda}_i \vec{\Lambda}_i{^T}\right)^{-1} \sum I_i \vec{\Lambda}_i
+\end{align}
+
+The multiplication of $\Lambda$ with its transpose forms a symmetrical matrix.  The summation accumulate over the body of data collected to form a matrix that must be inverted.
 
 \end{document}
