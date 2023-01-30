@@ -5,11 +5,14 @@
 """
 
 import numpy as np
+import scipy as sp
+import array,struct
+
 
 class WireSlice(object):
     """WireSlice - ion densities in a 2D slice constructed from SDLP measurements
 
-    ws = WireSlice(L, R, ...)
+    ws = WireSlice(L, ...)
     
 ** L **
 The domain size can be specified as a tuple for a rectuangular domain
@@ -20,12 +23,8 @@ or with a scalar for a square domain
 No length units are presumed, but all lengths used by WireSlice 
 instances must be the same.  For display purposes, an optional unit 
 string may be specified using the length keyword.  
-    ws = WireSlice( ... length='mm', ...)
+    ws = WireSlice( ... units='mm', ...)
     
-** R **
-The wire radius from the center of disc rotation is specified by a 
-scalar with the same length units used to specify the domain size, L.
-
 ** Defining the Expansion **
 The number of terms used in the Fourier expansion in x (horizontal) and
 y (vertical) can be specified explicitly by N or implicitly by the 
@@ -60,14 +59,13 @@ is a measure of the spatial resolution that can be represented by the
 expansion.
 """
     
-    def __init__(self, L, R, N=None, k=None, length=''):
+    def __init__(self, L, N=None, k=None, units=''):
         # Force L to be a two-element vector
         
         self.L = np.broadcast_to(np.asarray(L, dtype=int), (2,))
-        self.length = length
-        self.R = float(R)
-
         self.N = np.zeros([2], dtype=int)   # number of wavenumbers
+        self.units = str(units)
+
 
         if N is not None:
             if k is not None:
@@ -88,7 +86,8 @@ expansion.
         self.A = np.zeros((self.size, self.size), dtype=float)
         self.C = np.zeros((self.size,), dtype=float)
         
-    def lam(self, d, theta):
+        
+    def lam(self, r, d, theta):
         """LAM - calculate the lambda vector for a given d and theta
 """
         # Sines and cosines will come in handy repeatedly
@@ -99,7 +98,7 @@ expansion.
         # Since these raidii calculations can be infinite, first calculate
         # the maximum inverse of radius, which will never be zero.
         # Then, we'll invert it again.
-        r1 = 1./max(1./self.R, 
+        r1 = 1./max(1./r, 
                 cth/(self.L[0] + d), 
                 2*sth/self.L[1])
                 
@@ -133,19 +132,98 @@ expansion.
         
         return LAM
 
-    def include(self, d, theta, I):
+    def include(self, r, d, theta, I):
         """INCLUDE - include a datum in the model
-    include(d, theta, I)
+    include(r, d, theta, I)
     
 d   -   distance between the center of rotation and the domain edge
 theta - the wire angle in radians
 I   -   The total current measured in this position
 """
-        lam = self.lam(d,theta)
+        lam = self.lam(r, d, theta)
         self.A += lam.reshape((lam.size,1)) * lam
         self.C += I * lam
         
     def solve(self):
         """SOLVE - solve the system with the data already included
 """
-        self.X = np.linalg.solve(self.A, self.C)
+        # The 
+        self.X = sp.linalg.solve(self.A, self.C, assume_a='sym')
+
+
+
+class WireFile:
+    def __init__(self, filename):
+        self.filename = filename
+        self.fd = None
+        self.isread = False
+        self.lineformat = '@dddd'
+        self.linebytes = struct.calcsize(self.lineformat)
+
+    def open(self, mode):
+        if self.fd is not None:
+            raise FileExistsError('File is already open.')
+        if mode in ['r', 'rb']:
+            self.fd = open(self.filename, 'rb')
+            self.isread = True
+        elif mode in ['w', 'wb']:
+            self.fd = open(self.filename, 'wb')
+            self.isread = False
+        elif mode in ['a', 'ab']:
+            self.fd = open(self.filename, 'ab')
+            self.isread = False
+        elif mode in ['x', 'xb']:
+            self.fd = open(self.filename, 'xb')
+            self.isread = False
+        return self
+    
+    def close(self):
+        if self.fd is None:
+            raise FileExistsError('File is already closed.')
+        self.fd.close()
+        self.fd = None
+        self.isread = False
+        
+    def __enter__(self):
+        return self
+        
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if self.fd is not None:
+            self.fd.close()
+            self.fd = None
+            self.isread = False
+        return False
+
+    def readline(self):
+        if self.isread:
+            return struct.unpack(self.lineformat, self.fd.read(self.linebytes))
+        raise Exception('The file is not opened in read mode.')
+        
+    def writeline(self, r, d, theta, I):
+        """Write a single radius, diameter, angle, and current entry to the file
+        
+    with wf.open('w'):
+        wf.writeline(r,d,theta,I)
+"""
+        if self.isread or self.fd is None:
+            raise Exception('The file is not opened in write mode.')
+        self.fd.write(struct.pack(self.lineformat, r,d,theta,I))
+
+    def read(self, lines=-1):
+        """Read all or a number of lines into a list of tuples
+    read()
+        OR
+    read(lines)
+    
+lines is an optional number of lines to read.  When lines is omitted or
+negative, read() will continue until it reaches the end-of-file.
+"""
+        if not self.isread or self.fd is None:
+            raise Exception('The file is not opened in read mode.')
+        out = []
+        bb = self.fd.read(self.linebytes)
+        while len(bb) == self.linebytes and lines!=0:
+            out.append(struct.unpack(self.lineformat, bb))
+            bb = self.fd.read(self.linebytes)
+            lines -= 1
+        return out
