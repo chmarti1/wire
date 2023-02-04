@@ -5,7 +5,7 @@
 """
 
 import numpy as np
-import scipy as sp
+from scipy.linalg import solve
 import array,struct
 
 
@@ -143,12 +143,32 @@ I   -   The total current measured in this position
         lam = self.lam(r, d, theta)
         self.A += lam.reshape((lam.size,1)) * lam
         self.C += I * lam
+
+    def read(self, filename):
+        """Read from a file
+    ws.read(filename)
+        OR
+    ws.read(wf)
+    
+Reads from a file or from an open WireFile instance
+"""
+        if isinstance(filename,str):
+            wf = WireFile(filename)
+            with wf.open('r'):
+                self.read(wf)
+            return
+        elif not isinstance(filename,WireFile):
+            raise Exception('The file must be either a string path or a WireFile instance.')
+        
+        for r,d,theta,I in filename:
+            self.include(r,d,theta,I)
+            
         
     def solve(self):
         """SOLVE - solve the system with the data already included
 """
-        # The 
-        self.X = sp.linalg.solve(self.A, self.C, assume_a='sym')
+        #self.X = solve(self.A, self.C, assume_a='sym')
+        self.X = solve(self.A, self.C)
 
 
 
@@ -187,6 +207,17 @@ class WireFile:
     def __enter__(self):
         return self
         
+    def __iter__(self):
+        if not self.isread:
+            raise Exception('The file is not opened in read mode.')
+        return self
+    
+    def __next__(self):
+        bb = self.fd.read(self.linebytes)
+        if len(bb) < self.linebytes:
+            raise StopIteration
+        return struct.unpack(self.lineformat, bb)
+        
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if self.fd is not None:
             self.fd.close()
@@ -196,7 +227,10 @@ class WireFile:
 
     def readline(self):
         if self.isread:
-            return struct.unpack(self.lineformat, self.fd.read(self.linebytes))
+            bb = self.fd.read(self.linebytes)
+            if len(bb) < self.linebytes:
+                return ()
+            return struct.unpack(self.lineformat, bb)
         raise Exception('The file is not opened in read mode.')
         
     def writeline(self, r, d, theta, I):
@@ -209,21 +243,3 @@ class WireFile:
             raise Exception('The file is not opened in write mode.')
         self.fd.write(struct.pack(self.lineformat, r,d,theta,I))
 
-    def read(self, lines=-1):
-        """Read all or a number of lines into a list of tuples
-    read()
-        OR
-    read(lines)
-    
-lines is an optional number of lines to read.  When lines is omitted or
-negative, read() will continue until it reaches the end-of-file.
-"""
-        if not self.isread or self.fd is None:
-            raise Exception('The file is not opened in read mode.')
-        out = []
-        bb = self.fd.read(self.linebytes)
-        while len(bb) == self.linebytes and lines!=0:
-            out.append(struct.unpack(self.lineformat, bb))
-            bb = self.fd.read(self.linebytes)
-            lines -= 1
-        return out
