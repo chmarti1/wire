@@ -5,9 +5,8 @@ import wire
 import numpy as np
 import scipy as sp
 
-class ProtoSignal:
-    def __init__(self):
-        pass
+class ProtoSignal(object):
+    pass
 
 class GaussianSignal(ProtoSignal):
     """GaussianSignal
@@ -92,7 +91,7 @@ ProtoSignal elements.
     def __init__(self):
         self.members = []
         
-    def __call__(self, r, d, theta, dr=None):
+    def __call__(self, r, d, theta):
         I = 0.
         for m in self:
             I += m(r,d,theta)
@@ -123,3 +122,34 @@ Remove a member from the member signal list and return it
 """
         return self.members.pop(index)
 
+    def generate(self, filename, r, d, theta):
+        """Generate a wirefile dataset
+    ts.generate(filename, d, theta)
+    
+** filename **
+The filename of the WireFile to generate
+
+** r **
+Scalar or array-like wire radii
+
+** d, theta**
+Array-like values of d and theta to use when generating the file. 
+"""
+        r = np.atleast_1d(r)
+        wf = wire.WireFile(filename)
+        with wf.open('w'):
+            for dd in d:
+                for th in theta:
+                    for rr in r:
+                        wf.writeline(rr, dd, th, self(rr, dd, th))
+                        
+
+if __name__ == '__main__':
+    ws = wire.WireSlice(1,k=2)
+    ts = TestSection()
+    ts.addmember(CircleSignal(0.5,0,0.4,1.))
+    ts.addmember(CircleSignal(0.5,0,0.3,-1.))
+    ts.generate('test.wf', 3, np.linspace(3,2,51), np.linspace(-.5,.5,51))
+
+    ws.read('test.wf')
+    ws.solve()

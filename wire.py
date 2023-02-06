@@ -5,7 +5,7 @@
 """
 
 import numpy as np
-import scipy as sp
+from scipy.linalg import solve
 import array,struct
 
 
@@ -90,6 +90,11 @@ expansion.
     def lam(self, r, d, theta):
         """LAM - calculate the lambda vector for a given d and theta
 """
+        # Does this theta actually intersect the domain?
+        theta_critical = np.arctan(self.L[1] / (2*d))
+        if not -theta_critical < theta < theta_critical:
+            return np.zeros((self.size,),dtype=float)
+   
         # Sines and cosines will come in handy repeatedly
         sth = np.sin(theta)
         cth = np.cos(theta)
@@ -114,21 +119,23 @@ expansion.
         # Force k0 to have a non-zero number.  It will be ignored later
         k[0] = -1.
         # Calculate the line integral matrix
-        gam = 1. / (2*np.pi*k) * np.exp(-2j*np.pi*self.m[0]*d/self.L[0])
-        gam *= (np.exp(2j*np.pi*k*r1) - np.exp(2j*np.pi*k*r0))
+        gam = (np.exp(2j*np.pi*k*r1) - np.exp(2j*np.pi*k*r0)) / (2j*np.pi*k)
+        # Handle the special m=n=0 case
+        gam[0,0] = dr
+        # Apply the x-axis phase induced by d
+        gam *= np.exp(-2j*np.pi*self.m[0]*d/self.L[0])
 
         # Flatten gamma to map it to the appropriate indices
         gam = gam.flatten()
         
         # OK, initialize the result
-        NN = 2*(self.N[0]+1)*(self.N[1]+1)
-        LAM = np.empty((NN,),dtype=float)
-        LAM[0] = dr     # Constant term
-        LAM[1] = 1.     # Offset term
+        LAM = np.empty((self.size,),dtype=float)
         # Assign the real and imaginary portions to the appropriate 
         # portions of the lambda vector
-        LAM[2::2] = gam.real[1:]
-        LAM[3::2] = gam.imag[1:]
+        LAM[0::2] = gam.real[1:]
+        LAM[1::2] = gam.imag[1:]
+        # Assign the current offset term
+        LAM[1] = 1.
         
         return LAM
 
@@ -143,14 +150,69 @@ I   -   The total current measured in this position
         lam = self.lam(r, d, theta)
         self.A += lam.reshape((lam.size,1)) * lam
         self.C += I * lam
+
+    def read(self, filename):
+        """Read from a file
+    ws.read(filename)
+        OR
+    ws.read(wf)
+    
+Reads from a file or from an open WireFile instance
+"""
+        if isinstance(filename,str):
+            wf = WireFile(filename)
+            with wf.open('r'):
+                self.read(wf)
+            return
+        elif not isinstance(filename,WireFile):
+            raise Exception('The file must be either a string path or a WireFile instance.')
+        
+        for r,d,theta,I in filename:
+            self.include(r,d,theta,I)
+            
         
     def solve(self):
         """SOLVE - solve the system with the data already included
 """
-        # The 
-        self.X = sp.linalg.solve(self.A, self.C, assume_a='sym')
+        #self.X = solve(self.A, self.C, assume_a='sym')
+        X = solve(self.A, self.C)
+        # Build the complex coefficients
+        c = X[2::2] + 1j*X[3::2]
+        # Deal with c0,0 specially
+        c[0] = X[0]
+        self.c = c.reshape(self.N+1)
+        # Grab the offset current
+        self.I0 = X[1]
 
-
+    def grid(self,Nx=None, Ny=None):
+        """GRID - evaluate the solution at grid points
+    x,y,I = grid()
+        OR
+    x,y,I = grid(N)
+        Or
+    x,y,I = grid(Nx, Ny)
+    
+If no argument is given, the grid spacing is selected automatically 
+based on the highest wave number in each axis.  If a single scalar 
+argument is given, it is treated as the number of grid oints in each
+axis.  If tuple pair of arguments are found, they are interpreted as 
+the number of grid points in the x- and y-axes.
+"""
+        # If no arguments are given
+        if Nx is None:
+            if Ny is None:
+                Nx,Ny = 2*self.N
+            else:
+                raise Exception('Cannot specify Ny without specifying Nx.')
+        # If Nx is given
+        elif Ny is None:
+            Ny = Nx
+        # If Nx and Ny are given, do nothing
+        x,y = np.meshgrid(x,y)
+        
+        I = I0 + c*np.exp(2j*np.pi*(self.m[0]*x/self.L[0] + self.m[1]*y/self.L[1]))
+        return x,y,I.real
+        
 
 class WireFile:
     def __init__(self, filename):
@@ -187,6 +249,17 @@ class WireFile:
     def __enter__(self):
         return self
         
+    def __iter__(self):
+        if not self.isread:
+            raise Exception('The file is not opened in read mode.')
+        return self
+    
+    def __next__(self):
+        bb = self.fd.read(self.linebytes)
+        if len(bb) < self.linebytes:
+            raise StopIteration
+        return struct.unpack(self.lineformat, bb)
+        
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if self.fd is not None:
             self.fd.close()
@@ -196,7 +269,10 @@ class WireFile:
 
     def readline(self):
         if self.isread:
-            return struct.unpack(self.lineformat, self.fd.read(self.linebytes))
+            bb = self.fd.read(self.linebytes)
+            if len(bb) < self.linebytes:
+                return ()
+            return struct.unpack(self.lineformat, bb)
         raise Exception('The file is not opened in read mode.')
         
     def writeline(self, r, d, theta, I):
@@ -209,21 +285,3 @@ class WireFile:
             raise Exception('The file is not opened in write mode.')
         self.fd.write(struct.pack(self.lineformat, r,d,theta,I))
 
-    def read(self, lines=-1):
-        """Read all or a number of lines into a list of tuples
-    read()
-        OR
-    read(lines)
-    
-lines is an optional number of lines to read.  When lines is omitted or
-negative, read() will continue until it reaches the end-of-file.
-"""
-        if not self.isread or self.fd is None:
-            raise Exception('The file is not opened in read mode.')
-        out = []
-        bb = self.fd.read(self.linebytes)
-        while len(bb) == self.linebytes and lines!=0:
-            out.append(struct.unpack(self.lineformat, bb))
-            bb = self.fd.read(self.linebytes)
-            lines -= 1
-        return out

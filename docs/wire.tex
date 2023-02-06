@@ -50,15 +50,18 @@ s_\theta &\equiv \sin(\theta)\\
 c_\theta &\equiv \cos(\theta)
 \end{align}
 
-If $r$ is the distance along the wire from the disc center,
+If $r$ is the distance along the wire from the disc center, the corresponding location in $(x,y)$ is
 \begin{align}
 x &= r c_\theta - d\\
-y &= r s_\theta\\
+y &= r s_\theta.
+\end{align}
+The radius at which the wire crosses into the domain, $R_0$, the radius at which the wire either terminates or leaves the domain, $R_1$, and the wire length in the domain, $\Delta R$, are
+\begin{align}
 R_0 &= \frac{d}{c_\theta}\\
 R_1 &= \min\left(\ R,\ \frac{d + L_x}{c_\theta},\ \left|\frac{L_y}{2s_\theta}\right|\ \right)\\
 \Delta R &= R_1 - R_0.
 \end{align}
-The integral is a sum of surface currents along the wire's length at moment in time, so the disc position parameters, $d$ and $\theta$, are frozen in time for the purposes of this integral.  Therefore, for compactness of notation, it will become convenient to express the trigonometric functions on $\theta$ as constants, $c_\theta$ and $s_\theta$.
+The integral is a sum of surface currents along the wire's length at moment in time, so the disc position parameters, $d$ and $\theta$, are constant.  For compactness of notation, it will become convenient to express the trigonometric functions on $\theta$ as constants, $c_\theta$ and $s_\theta$.
 
 A single term of the Fourier series appears
 \begin{align*}
@@ -71,60 +74,50 @@ The \emph{wavenumber}, $k$, is the frequency (in units 1/length) along the wire'
 k = \frac{m c_\theta}{L_x} + \frac{n s_\theta}{L_y}.
 \end{align}
 
-For an integral over $r$, all but the last portion of the term above is constant, for the time being, we may consider only the portion containing $r$,
+For an integral over $r$, all but the last portion of the term above is constant, so it is convenient to define a new parameter, $\gamma$, which represents the value of this term integrated over $r$:
 \begin{align}
-\int_{R_0}^{R_1} \exp\left(2\pi j k r \right) \d r = \left\{\begin{array}{c|l}
+\gamma_{m,n}(d,\theta) &= \int_{R_0}^{R_1} \exp\left(2\pi j k r \right) \d r \nonumber\\
+ &= \left\{\begin{array}{c|l}
  \Delta R & m = n = 0\\
- \frac{1}{2\pi j k}\left[\exp\left(2\pi j k r \right)\right]^{R_1}_{R_0} & \mathrm{otherwise}.
+ \frac{1}{2\pi j k}\left[\exp\left(2\pi j k r \right)\right]^{R_1}_{R_0} & \mathrm{otherwise}
 \end{array}
-\right.
+\right. .
 \end{align}
-
-For compactness of notation, we define the complex wire integral,
+This yields an expression for the total wire current
 \begin{align}
-\gamma_{m,n}(d,\theta) = \frac{1}{2\pi j k}\exp\left(-2\pi j \frac{md}{L_x}\right) \Bigl( \exp(2\pi j k R_1) - \exp(2\pi j k R_0) \Bigr).
+I(d,\theta) &= \real \sum_{m=0}^{N_x} \exp\left(-2\pi j \frac{md}{L_x} \right) \sum_{n=0}^{N_y} c_{m,n} \gamma_{m,n} 
 \end{align}
-When we express the complex coefficient, $c_{m,n}$ in its real and imaginary parts,
-\begin{align}
-c_{m,n} = a_{m,n} + j b_{m,n},
-\end{align}
-this yields an expression for the total wire current
-\begin{align}
-I(d,\theta) &= a_{0,0} \Delta R(d,\theta) + \sum_{m,n\ne 0}^{N_x,N_y} a_{m,n} \real \left\{ \gamma_{m,n}(d,\theta) \right\} - b_{m,n} \imag \left\{ \gamma_{m,n}(d,\theta) \right\}
-\end{align}
-
-The wavenumber, $k$, is repeated here for convenience.  Of course, $\gamma$ could be expressed in terms of sines and cosines, but that is neither cleaner notation, nor more numerically convenient, so we elect to leave the formulation in complex components.
 
 \subsection{Offset current}
 
-Every experiment begins by zeroing the current signal to the nearest practical precision, but no real signal will ever be perfectly zero to numerical precision.  In most applications, this is not especially problematic, but the derivation above makes no allowance for any component of current signal that appears on portions of the wire where $x$ is negative.  For this reason, it is prudent to add a global offset parameter, $b_{0,0}$, which is intended to be a small current that is present everywhere.  
+Every experiment begins by zeroing the current signal to the nearest practical precision, but no real signal will ever be perfectly zero to numerical precision.  Normally, this would not be especially problematic, but the derivation above provides no representation of current sources outside of the domain.  To prevent the kinds of bizarre numerical phenomena that can occur when models awkwardly attempt to match behaviors beyond their capability, it is prudent to add a global offset parameter, $I_0$,  
 \begin{align}
-I(d,\theta) &= a_{0,0} \Delta R(d,\theta) + b_{0,0} + \sum_{m,n\ne 0}^{N_x,N_y} a_{m,n} \real \left\{ \gamma_{m,n}(d,\theta) \right\} - b_{m,n} \imag \left\{ \gamma_{m,n}(d,\theta) \right\} \label{eqn:I}
+I(d,\theta) &= I_0 + \real \sum_{m=0}^{N_x} \exp\left(-2\pi j \frac{md}{L_x} \right) \sum_{n=0}^{N_y} c_{m,n}\gamma_{m,n}\label{eqn:I}.
 \end{align}
-
-Note that $b_{0,0}$ is distinct from $a_{0,0}$ because its contribution to the measured wire current is independent of $d$ and $\theta$.  The difference is that currents due to $c_{0,0}$ are only applied to the portions of the wire that are in the domain.  As the wire progresses deeper into the domain, $c_{0,0}$ will cause the integrated current to rise, but an offset signal will be present in the measurements everywhere.
-
-With the addition of $I_0$, there are $2(N_x+1)(N_y+1)$ coefficients that need to be calculated.
 
 \section{Inversion}
 
-Fourier transforms classically take advantage of the orthogonality of the sinusoidal basis functions, so the original signal only needs to be integrated against each basis function over the entire domain to calculate the magnitude and phase of that component.  However, because no single wire position spans the entire domain, this approach is not tenable.
+Fourier transforms classically take advantage of the orthogonality of the sinusoidal basis functions, so the original signal only needs to be integrated against each basis function over the entire domain to calculate the magnitude and phase of that component.  Because no single wire position spans the entire domain, this approach is not tenable.
 
-Instead, we benefit from the fact that the unknown parameters are linear coefficients.  If they were to be serialized in a vector, $\vec{x}$, the problem lends itself to a simple least-squared approach.  The scheme used to organize the coefficients in $\vec{x}$ is not especially important, but it might be something along the lines of 
+Instead, we benefit from the fact that the unknown parameters are linear coefficients.  If they were to be serialized in a vector, $\vec{x}$, the problem lends itself to a simple least-squared approach.  Because they are complex each instance of $c_{m,n}$ actually represents two unknown coefficients,
 \begin{align}
-\vec{x} = \{a_{0,0},\ b_{0,0},\ a_{1,0},\ b_{1,0},\ a_{2,0},\ b_{2,0},\ \ldots \}^T.
+c_{m,n} = a_{m,n} + j b_{m,n}.
 \end{align}
-Regardless of the approach, each element of $\vec{x}$ corresponds to a unique combination of $m$ and $n$.  
+The scheme used to organize the coefficients in $\vec{x}$ is not especially important, but it might be something along the lines of 
+\begin{align}
+\vec{x} = \{a_{0,0},\ I_0,\ a_{1,0},\ b_{1,0},\ a_{2,0},\ b_{2,0},\ \ldots \}^T.
+\end{align}
+Note that $b_{0,0}$ has been replaced by the offset current, $I_0$.  When $m=n=0$, the expression is purely real, so $b_{0,0}$ is ignored by this formulation - the solution is independent of its selection.  So, with the addition of $I_0$, there are $2(N_x+1)(N_y+1)$ coefficients to be calculated.
 
 When the terms of (\ref{eqn:I}) are embedded into a second vector, $\vec{\Lambda}$, the equation may be rewritten
 \begin{align}
 I(d,\theta) = \vec{\Lambda}(d,\theta) \cdot \vec{x}.
 \end{align}
-Here, $\vec{\Lambda}$, is a vector that models the contribution of each coefficient to the current of a wire in location $d,\theta$.
+Here, $\vec{\Lambda}$, is a vector that models the contribution of each coefficient to the current of a wire in location $(d,\theta)$.
 
-For a given wire position, $d_i, \theta_i$, there will be a measured current, $I_i$.  For a given coefficient set, there will be an error,
+For a given wire position, $(d_i, \theta_i)$, there will be a measured current, $I_i$.  For a given coefficient set, there will be an error,
 \begin{align}
-e_i = I_i - \vec{\Lambda}_i \cdot \vec{x}.
+e_i = I_i - \vec{\Lambda}(d_i, \theta_i) \cdot \vec{x}.
 \end{align}
 In a least squares approach, we differentiate the sum of the squares of errors for each of the data points.  For compactness of notation, it will be convenient to abbreviate $\vec{\Lambda}_i = \vec{\Lambda}(d_i, \theta_i)$ moving forward.
 
