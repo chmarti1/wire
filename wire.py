@@ -90,6 +90,11 @@ expansion.
     def lam(self, r, d, theta):
         """LAM - calculate the lambda vector for a given d and theta
 """
+        # Does this theta actually intersect the domain?
+        theta_critical = np.arctan(self.L[1] / (2*d))
+        if not -theta_critical < theta < theta_critical:
+            return np.zeros((self.size,),dtype=float)
+   
         # Sines and cosines will come in handy repeatedly
         sth = np.sin(theta)
         cth = np.cos(theta)
@@ -114,21 +119,23 @@ expansion.
         # Force k0 to have a non-zero number.  It will be ignored later
         k[0] = -1.
         # Calculate the line integral matrix
-        gam = 1. / (2*np.pi*k) * np.exp(-2j*np.pi*self.m[0]*d/self.L[0])
-        gam *= (np.exp(2j*np.pi*k*r1) - np.exp(2j*np.pi*k*r0))
+        gam = (np.exp(2j*np.pi*k*r1) - np.exp(2j*np.pi*k*r0)) / (2j*np.pi*k)
+        # Handle the special m=n=0 case
+        gam[0,0] = dr
+        # Apply the x-axis phase induced by d
+        gam *= np.exp(-2j*np.pi*self.m[0]*d/self.L[0])
 
         # Flatten gamma to map it to the appropriate indices
         gam = gam.flatten()
         
         # OK, initialize the result
-        NN = 2*(self.N[0]+1)*(self.N[1]+1)
-        LAM = np.empty((NN,),dtype=float)
-        LAM[0] = dr     # Constant term
-        LAM[1] = 1.     # Offset term
+        LAM = np.empty((self.size,),dtype=float)
         # Assign the real and imaginary portions to the appropriate 
         # portions of the lambda vector
-        LAM[2::2] = gam.real[1:]
-        LAM[3::2] = gam.imag[1:]
+        LAM[0::2] = gam.real[1:]
+        LAM[1::2] = gam.imag[1:]
+        # Assign the current offset term
+        LAM[1] = 1.
         
         return LAM
 
@@ -168,9 +175,44 @@ Reads from a file or from an open WireFile instance
         """SOLVE - solve the system with the data already included
 """
         #self.X = solve(self.A, self.C, assume_a='sym')
-        self.X = solve(self.A, self.C)
+        X = solve(self.A, self.C)
+        # Build the complex coefficients
+        c = X[2::2] + 1j*X[3::2]
+        # Deal with c0,0 specially
+        c[0] = X[0]
+        self.c = c.reshape(self.N+1)
+        # Grab the offset current
+        self.I0 = X[1]
 
-
+    def grid(self,Nx=None, Ny=None):
+        """GRID - evaluate the solution at grid points
+    x,y,I = grid()
+        OR
+    x,y,I = grid(N)
+        Or
+    x,y,I = grid(Nx, Ny)
+    
+If no argument is given, the grid spacing is selected automatically 
+based on the highest wave number in each axis.  If a single scalar 
+argument is given, it is treated as the number of grid oints in each
+axis.  If tuple pair of arguments are found, they are interpreted as 
+the number of grid points in the x- and y-axes.
+"""
+        # If no arguments are given
+        if Nx is None:
+            if Ny is None:
+                Nx,Ny = 2*self.N
+            else:
+                raise Exception('Cannot specify Ny without specifying Nx.')
+        # If Nx is given
+        elif Ny is None:
+            Ny = Nx
+        # If Nx and Ny are given, do nothing
+        x,y = np.meshgrid(x,y)
+        
+        I = I0 + c*np.exp(2j*np.pi*(self.m[0]*x/self.L[0] + self.m[1]*y/self.L[1]))
+        return x,y,I.real
+        
 
 class WireFile:
     def __init__(self, filename):
