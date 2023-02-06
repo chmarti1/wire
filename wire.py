@@ -87,13 +87,19 @@ expansion.
         self.C = np.zeros((self.size,), dtype=float)
         
         
+    def __call__(self, x, y):
+        I = self.I0 + self.c*np.exp(2j*np.pi*(self.m[0]*x/self.L[0] + self.m[1]*y/self.L[1]))
+        return I.real
+        
     def lam(self, r, d, theta):
         """LAM - calculate the lambda vector for a given d and theta
 """
         # Does this theta actually intersect the domain?
         theta_critical = np.arctan(self.L[1] / (2*d))
-        if not -theta_critical < theta < theta_critical:
-            return np.zeros((self.size,),dtype=float)
+        if not -theta_critical < theta < theta_critical or r<=d:
+            LAM = np.zeros((self.size,),dtype=float)
+            LAM[1] = 1.
+            return LAM
    
         # Sines and cosines will come in handy repeatedly
         sth = np.sin(theta)
@@ -105,23 +111,28 @@ expansion.
         # Then, we'll invert it again.
         r1 = 1./max(1./r, 
                 cth/(self.L[0] + d), 
-                2*sth/self.L[1])
+                np.abs(2*sth/self.L[1]))
                 
         # Calculate R0
-        # If the wire doesn't pass into the domain, r0 should be equal 
-        # to r1.
-        r0 = min(r1, d/cth)
-        # Finally, calculate delta-r
-        dr = r1 - r0
-        
+        r0 = d/cth
+
         # Calculate a wavenumber matrix
         k = self.m[0]*cth/self.L[0] + self.m[1]*sth/self.L[1]
-        # Force k0 to have a non-zero number.  It will be ignored later
-        k[0] = -1.
+        # Izero is a boolean index marking elements where k is zero
+        Izero = np.zeros_like(k,dtype=bool)
+        # If the angle is exactly zero, then there are zero-valued k-values
+        if theta == 0.:
+            Izero[0,:] = True
+        # wavenumber is always zero when m=n=0
+        else:
+            Izero[0,0] = True
+        # Force k to a non-zero number
+        k[Izero] = -1
+        
         # Calculate the line integral matrix
         gam = (np.exp(2j*np.pi*k*r1) - np.exp(2j*np.pi*k*r0)) / (2j*np.pi*k)
         # Handle the special m=n=0 case
-        gam[0,0] = dr
+        gam[Izero] = r1-r0
         # Apply the x-axis phase induced by d
         gam *= np.exp(-2j*np.pi*self.m[0]*d/self.L[0])
 
@@ -132,8 +143,8 @@ expansion.
         LAM = np.empty((self.size,),dtype=float)
         # Assign the real and imaginary portions to the appropriate 
         # portions of the lambda vector
-        LAM[0::2] = gam.real[1:]
-        LAM[1::2] = gam.imag[1:]
+        LAM[0::2] = gam.real
+        LAM[1::2] = -gam.imag
         # Assign the current offset term
         LAM[1] = 1.
         
@@ -177,12 +188,13 @@ Reads from a file or from an open WireFile instance
         #self.X = solve(self.A, self.C, assume_a='sym')
         X = solve(self.A, self.C)
         # Build the complex coefficients
-        c = X[2::2] + 1j*X[3::2]
+        c = X[0::2] + 1j*X[1::2]
         # Deal with c0,0 specially
         c[0] = X[0]
         self.c = c.reshape(self.N+1)
         # Grab the offset current
         self.I0 = X[1]
+
 
     def grid(self,Nx=None, Ny=None):
         """GRID - evaluate the solution at grid points
@@ -201,18 +213,17 @@ the number of grid points in the x- and y-axes.
         # If no arguments are given
         if Nx is None:
             if Ny is None:
-                Nx,Ny = 2*self.N
+                Nx,Ny = 2*self.N+1
             else:
                 raise Exception('Cannot specify Ny without specifying Nx.')
         # If Nx is given
         elif Ny is None:
             Ny = Nx
-        # If Nx and Ny are given, do nothing
+        # If Nx and Ny are given, do nothing        
+        x = np.linspace(0,self.L[0],Nx)
+        y = np.linspace(-self.L[1]/2, self.L[1]/2, Ny)
         x,y = np.meshgrid(x,y)
-        
-        I = I0 + c*np.exp(2j*np.pi*(self.m[0]*x/self.L[0] + self.m[1]*y/self.L[1]))
-        return x,y,I.real
-        
+        return x,y
 
 class WireFile:
     def __init__(self, filename):

@@ -58,8 +58,7 @@ y &= r s_\theta.
 The radius at which the wire crosses into the domain, $R_0$, the radius at which the wire either terminates or leaves the domain, $R_1$, and the wire length in the domain, $\Delta R$, are
 \begin{align}
 R_0 &= \frac{d}{c_\theta}\\
-R_1 &= \min\left(\ R,\ \frac{d + L_x}{c_\theta},\ \left|\frac{L_y}{2s_\theta}\right|\ \right)\\
-\Delta R &= R_1 - R_0.
+R_1 &= \min\left(\ R,\ \frac{d + L_x}{c_\theta},\ \left|\frac{L_y}{2s_\theta}\right|\ \right)
 \end{align}
 The integral is a sum of surface currents along the wire's length at moment in time, so the disc position parameters, $d$ and $\theta$, are constant.  For compactness of notation, it will become convenient to express the trigonometric functions on $\theta$ as constants, $c_\theta$ and $s_\theta$.
 
@@ -78,7 +77,7 @@ For an integral over $r$, all but the last portion of the term above is constant
 \begin{align}
 \gamma_{m,n}(d,\theta) &= \int_{R_0}^{R_1} \exp\left(2\pi j k r \right) \d r \nonumber\\
  &= \left\{\begin{array}{c|l}
- \Delta R & m = n = 0\\
+ R_1 - R_0 & k = 0\\
  \frac{1}{2\pi j k}\left[\exp\left(2\pi j k r \right)\right]^{R_1}_{R_0} & \mathrm{otherwise}
 \end{array}
 \right. .
