@@ -45,7 +45,7 @@ In the present work, we adopt a spatial Fourier series, which provides a far mor
 
 The Fourier series for $\I$ is constructed in $x,y$ coordinates
 \begin{align}
-\I(x,y) &= \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \exp\left(2\pi j \vnu \cdot \x \right),
+\I(x,y) &= \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \exp\left(2\pi j \vnu \cdot \x \right),\label{eqn:Ibar}
 \end{align}
 where $\vnu$ is the wavenumber vector,
 \begin{align}
@@ -81,8 +81,7 @@ The wavenumber along the wire (in the $\hat{e}_\theta$ direction) can be written
 The radius at which the wire crosses into the domain, $R_0$, the radius at which the wire either terminates or leaves the domain, $R_1$, and the wire length in the domain, $\Delta R$, are
 \begin{align}
 R_0 &= \frac{d}{c_\theta}\\
-R_1 &= \min\left(\ R,\ \frac{d + L_x}{\cos(\theta)},\ \left|\frac{L_y}{2\sin(\theta)}\right|\ \right)\\
-\Delta R &= R_1 - R_0.
+R_1 &= \min\left(\ R,\ \frac{d + L_x}{\cos(\theta)},\ \left|\frac{L_y}{2\sin(\theta)}\right|\ \right)
 \end{align}
 The integral is a sum of surface currents along the wire's length at moment in time, so the disc position parameters, $d$ and $\theta$, are constant.  For compactness of notation, it will become convenient to express the trigonometric functions on $\theta$ as constants, $c_\theta$ and $s_\theta$.
 
@@ -98,44 +97,34 @@ For an integral over $r$, all but the last portion of the term above is constant
 \begin{align}
 \gamma_{m,n}(d,\theta) &= \int_{R_0}^{R_1} \exp\left(2\pi j \nuth r \right) \d r \nonumber\\
  &= \left\{\begin{array}{c|l}
- \Delta R & \nuth = 0\\
+ R_1 - R_0 & \nuth = 0\\
  \left.\frac{1}{2\pi j \nuth}\exp\left(2\pi j \nuth r \right)\right|^{R_1}_{R_0} & \mathrm{otherwise}
 \end{array}
 \right.
 \end{align}
 The wavenumber, $\nuth$, can be zero when $m=n=0$ or when $\x$ is exactly normal to the wavenumber vector.
 
-When we express the complex coefficient, $c_{m,n}$ in its real and imaginary parts,
+This yields an expression for the total wire current
 \begin{align}
-c_{m,n} = a_{m,n} + j b_{m,n},
-\end{align}
-this yields an expression for the total wire current
-\begin{align}
-I(d,\theta) &= \sum_{m=-N_x}^{N_x} \exp\left(-2\pi j \frac{md}{N_x L_x} \right) \sum_{n=-N_y}^{N_y} c_{m,n} \gamma_{m,n}(d,\theta)
+I(d,\theta) &= \sum_{m=-N_x}^{N_x} \exp\left(-2\pi j \frac{md}{L_x} \right) \sum_{n=-N_y}^{N_y} c_{m,n} \gamma_{m,n}(d,\theta)
 \end{align}
 
 \subsection{Offset current}
 
-Every experiment begins by zeroing the current signal to the nearest practical precision, but no real signal will ever be perfectly zero to numerical precision.  In most applications, this is not especially problematic, but the derivation above makes no allowance for any component of current signal that appears on portions of the wire where $x$ is negative.  For this reason, it is prudent to add a global offset parameter, which is intended to be a small current that is present everywhere.  
-
+Every experiment begins by zeroing the current signal to the nearest practical precision, but no real signal will ever be perfectly zero to numerical precision.  Normally, this would not be especially problematic, but the derivation above provides no representation of current sources outside of the domain.  To prevent the kinds of bizarre numerical phenomena that can occur when models awkwardly attempt to match behaviors beyond their capability, it is prudent to add a global offset parameter, $I_0$,  
 \begin{align}
-I(d,\theta) &= I_0 + \sum_{m=-N_x}^{N_x} \exp\left(-2\pi j \frac{md}{L_x} \right) \sum_{n=-N_y}^{N_y} c_{m,n} \gamma_{m,n}(d,\theta)
+I(d,\theta) &= I_0 + \sum_{m=-N_x}^{N_x} \exp\left(-2\pi j \frac{md}{L_x} \right) \sum_{n=-N_y}^{N_y} c_{m,n}\gamma_{m,n}\label{eqn:I}.
 \end{align}
 
 \subsection{Alternate realization}
 
-Because the $c_{m,n}$ coefficients must occur in complex conjugate pairs, half of the $2(2N_x+1)(2N_y+1)$ unknown values represent redundant information.  If we consider wavenumber vectors that are negatives of each other, note that corresponding values of $\gamma$ will be complex conjugates,
+Because the $c_{m,n}$ coefficients must occur in complex conjugate pairs, half of the $2(2N_x+1)(2N_y+1)$ unknown values represent redundant information.  The current density formulation in Equation \ref{eqn:Ibar} can be reorganized around complex conjugates:
 \begin{align}
-\gamma_{-m,-n} = \gamma^*_{m,n}.
+I(d,\theta) &= c_{0,0} \nonumber\\
+& \hspace{-1em} + \sum_{n=1}^{N_y} c_{0,n} \exp(2\pi j \vec{\nu}_{0,n} \cdot \x) + c_{0,n}^* \exp(-2\pi j \vec{\nu}_{0,n} \cdot \x)\nonumber\\
+& \hspace{-1em} + \sum_{m=1}^{N_x}\sum_{n=-N_y}^{N_y} c_{m,n} \exp(2\pi j \vec{\nu}_{m,n} \cdot \x) + c_{m,n}^* \exp(-2\pi j \vec{\nu}_{m,n} \cdot \x).
 \end{align}
-Figure \ref{fig:wavenumbers} shows these complimentary $\vnu$ vectors in wavenumber space that correspond to coefficients with complex conjugates.  Note that
-
-It is possible, therefore, to write
-\begin{align}
-I(d,\theta) &= I_0 + c_{0,0} \nonumber\\
-& \hspace{-1em} + \sum_{n=1}^{N_y} c_{0,n} \gamma_{0,n} + c_{0,n}^* \gamma^*_{0,n} \nonumber\\
-& \hspace{-1em} + \sum_{m=1}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \exp\left(-2\pi j \frac{m d}{L_x}\right) \gamma_{m,n} +  c^*_{m,n} \exp\left(2\pi j \frac{m d}{L_x}\right) \gamma^*_{m,n}
-\end{align}
+This works because $\vec{\nu}_{-m,-n} = -\vnu$, and so $c_{-m,-n} = c_{m,n}^*$.  Figure \ref{fig:wavenumbers} shows these complimentary wavenumber vectors in the wavenumber plane.  The grouped terms above are shown in green blocks with their omitted complimentary terms in red.  This is probably the simplest way to show why three terms are necessary: if the domain were expressed using only one sum, the $(-m,-n)$ pair would incorrectly repeat terms at the origin and along the $\nu_y$-axis.  
 
 \begin{figure}
 \centering
@@ -143,19 +132,78 @@ I(d,\theta) &= I_0 + c_{0,0} \nonumber\\
 \caption{The wave number space with the included terms marked in green and their negative mirrors marked in red.}\label{fig:wavenumbers}
 \end{figure}
 
+The choice to select the $\nu_y$-axis as the line about which to mirror the domain is arbitrary.  It is equally valid to split the domain by the $\nu_x$-axis, or any line passing through the origin.  It is even possible to disperse points quasi-randomly, but there is no clear benefit to such a scheme.
+
+Once grouped into conjugates, these terms yield
+\begin{align}
+I(d,\theta) &= a_{0,0} \nonumber\\
+& \hspace{-1em} + \sum_{n=1}^{N_y} a_{0,n} \cos(2\pi \vec{\nu}_{0,n} \cdot \x) + b_{0,n} \sin(2\pi \vec{\nu}_{0,n} \cdot \x)\nonumber\\
+& \hspace{-1em} + \sum_{m=1}^{N_x}\sum_{n=-N_y}^{N_y} a_{m,n} \cos(2\pi j \vec{\nu}_{m,n} \cdot \x) + b_{m,n} \sin(2\pi j \vec{\nu}_{m,n} \cdot \x).
+\end{align}
+when
+\begin{align}
+a_{m,n} &= \left\{\begin{array}{c|l}
+c_{0,0} & m=n=0\\
+c_{m,n} + c_{m,n}^*& \mathrm{otherwise}
+\end{array}\right.\\
+b_{m,n} &= \left\{\begin{array}{c|l}
+0 & m=n=0\\
+-j(c_{m,n} - c_{m,n}^*) & \mathrm{otherwise}
+\end{array}\right.
+\end{align}
+
 \section{Inversion}
 
-Fourier transforms classically take advantage of the orthogonality of the sinusoidal basis functions, so the original signal only needs to be integrated against each basis function over the entire domain to calculate the magnitude and phase of that component.  Because no single wire position spans the entire domain, this approach is not tenable.
+Fourier transforms classically take advantage of the orthogonality of the sinusoidal basis functions, so the original signal only needs to be integrated against each basis function over the entire domain to calculate the magnitude and phase of that component.  Because no single wire position spans the entire domain, this approach is not tenable.  Instead, a vector of coefficients must be solved by inverting a matrix.
 
-Instead, we benefit from the fact that the unknown parameters are linear coefficients.  If they were to be serialized in a vector, $\vec{x}$, the problem lends itself to a simple least-squared approach.  Because they are complex each instance of $c_{m,n}$ actually represents two unknown coefficients,
+The exact scheme used to organize the coefficients into a vector, $\vec{c}$, is not especially important, but it might be something along the lines of 
 \begin{align}
-c_{m,n} = a_{m,n} + j b_{m,n}.
+\vec{c} = [I_0,\ c_{0,0},\ c_{1,0},\ \ldots ]^T.
 \end{align}
-The scheme used to organize the coefficients in $\vec{x}$ is not especially important, but it might be something along the lines of 
+As we show in the previous seciton, it is equally valid to express the problem in terms of a purely real vector constructed from the coefficients of sines and cosines,
 \begin{align}
-\vec{x} = \{a_{0,0},\ I_0,\ a_{1,0},\ b_{1,0},\ a_{2,0},\ b_{2,0},\ \ldots \}^T.
+\vec{d} = [I_0,\ a_{0,0},\ a_{1,0},\ \ldots\ b_{0,0},\ b_{1,0},\ \ldots]^T.
 \end{align}
-Note that $b_{0,0}$ has been replaced by the offset current, $I_0$.  When $m=n=0$, the expression is purely real, so $b_{0,0}$ is ignored by this formulation - the solution is independent of its selection.  So, with the addition of $I_0$, there are $2(N_x+1)(N_y+1)$ coefficients to be calculated.
+
+If the coefficients of these vectors were arranged into groups, they are related by a convenient linear transforms,
+\begin{align}
+\vec{d} = \left[\begin{array}{c}
+I_0\\
+a_{0,0}\\
+\vec{a}\\
+\vec{b}
+\end{array}\right] &= 
+\left[\begin{array}{cccc}
+1 & 0 & 0 & 0\\
+0 & 1 & 0 & 0\\
+0 & 0 & \mathbf{I} & \mathbf{I}\\
+0 & 0 & -j\mathbf{I} & -j\mathbf{I}
+\end{array}\right]
+\left[\begin{array}{c}
+I_0\\
+c_{0,0}\\
+\vec{c}\,^+\\
+\vec{c}\,^-
+\end{array}\right] = \mathbf{P} \vec{c}\\
+\vec{c} = \left[\begin{array}{c}
+I_0\\
+c_{0,0}\\
+\vec{c}\,^+\\
+\vec{c}\,^-
+\end{array}\right] &= 
+\left[\begin{array}{cccc}
+1 & 0 & 0 & 0\\
+0 & 1 & 0 & 0\\
+0 & 0 & \frac{1}{2} \mathbf{I} & \frac{j}{2} \mathbf{I}\\
+0 & 0 & \frac{1}{2} \mathbf{I} & -\frac{j}{2} \mathbf{I}
+\end{array}\right]
+\left[\begin{array}{c}
+I_0\\
+a_{0,0}\\
+\vec{a}\\
+\vec{b}
+\end{array}\right] = \mathbf{P}^{-1} \vec{d}
+\end{align}
 
 When the terms of (\ref{eqn:I}) are embedded into a second vector, $\vec{\Lambda}$, the equation may be rewritten
 \begin{align}

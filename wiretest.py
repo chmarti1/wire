@@ -4,6 +4,7 @@
 import wire
 import numpy as np
 import scipy as sp
+import matplotlib.pyplot as plt
 
 class ProtoSignal(object):
     pass
@@ -68,11 +69,19 @@ I = cs(r, d, theta)
         self.A = A
         
     def __call__(self, r, d, theta):
-        L = d + self.x
+        # modified horizontal distance to center
+        x = d + self.x
+        # Angle to center of the circle
+        theta_center = np.arctan(self.y/x)
+        # Distance to the circle's center
+        L = np.sqrt(x*x + self.y*self.y)
+        # Angle range to intersect the circle
         theta_crit = np.arcsin(self.r / L)
-        if -theta_crit < theta < theta_crit:
-            cth = np.cos(theta)
-            sth = np.sin(theta)
+        # Adjust the angle relative to the centerline
+        theta_adj = theta - theta_center
+        if -theta_crit < theta_adj < theta_crit:
+            cth = np.cos(theta_adj)
+            sth = np.sin(theta_adj)
             # Calculate the minimum radius
             r0 = L * (cth - np.sqrt(cth*cth - 1 + self.r*self.r/L/L))
             dr = 2*np.sqrt(self.r*self.r - L*L*sth*sth)
@@ -122,7 +131,7 @@ Remove a member from the member signal list and return it
 """
         return self.members.pop(index)
 
-    def generate(self, filename, r, d, theta):
+    def generate(self, filename, r, d, theta, show=False):
         """Generate a wirefile dataset
     ts.generate(filename, d, theta)
     
@@ -135,14 +144,25 @@ Scalar or array-like wire radii
 ** d, theta**
 Array-like values of d and theta to use when generating the file. 
 """
+        
         r = np.atleast_1d(r)
+        if show:
+            Nr = len(r)
+            fig,ax = plt.subplots(1,Nr,squeeze=False)
+            II = np.empty_like(theta, dtype=float)
+
         wf = wire.WireFile(filename)
         with wf.open('w'):
             for dd in d:
-                for th in theta:
-                    for rr in r:
-                        wf.writeline(rr, dd, th, self(rr, dd, th))
-                        
+                for rindex, rr in enumerate(r):
+                    for index,th in enumerate(theta):
+                        I = self(rr,dd,th)
+                        II[index] = I
+                        wf.writeline(rr, dd, th, I)
+                    if show:
+                        ax[rindex,0].plot(theta,II,'k')
+        if show:
+            plt.show()
 
 if __name__ == '__main__':
     ws = wire.WireSlice(1,k=2)

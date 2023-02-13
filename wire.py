@@ -76,24 +76,34 @@ expansion.
         else:
             raise Exception('Either N or k must be specified.')
            
-        self.size = 2*np.prod(self.N+1)
+        self.ncoef = np.prod(2*self.N+1)
 
-        # establish m and n vectors
-        self.m = np.meshgrid(range(self.N[0]+1), range(self.N[1]+1), indexing='ij', sparse = True)
-           
-        # initialize a solution matrix and vectors
-        self.X = None
-        self.A = np.zeros((self.size, self.size), dtype=float)
-        self.C = np.zeros((self.size,), dtype=float)
+        # establish wavenumber vectors
+        self.nu = np.meshgrid(
+                np.arange(-self.N[0], self.N[0]+1)/self.L[0],
+                np.arange(-self.N[1], self.N[1]+1)/self.L[1],
+                indexing='ij', sparse=True)
         
+        # initialize a solution matrix and vectors
+        self.C = None
+        self.I0 = None
+        self.A = np.zeros((self.ncoef, self.ncoef), dtype=complex)
+        self.B = np.zeros((self.ncoef,), dtype=complex)
+        
+        
+    def __call__(self, x, y):
+        # To be written
+        pass
         
     def lam(self, r, d, theta):
         """LAM - calculate the lambda vector for a given d and theta
 """
         # Does this theta actually intersect the domain?
         theta_critical = np.arctan(self.L[1] / (2*d))
-        if not -theta_critical < theta < theta_critical:
-            return np.zeros((self.size,),dtype=float)
+        if not -theta_critical < theta < theta_critical or r<=d:
+            LAM = np.zeros((self.ncoef,),dtype=complex)
+            #LAM[self.flatindex(0,0)] = 1.0j
+            return LAM
    
         # Sines and cosines will come in handy repeatedly
         sth = np.sin(theta)
@@ -105,39 +115,36 @@ expansion.
         # Then, we'll invert it again.
         r1 = 1./max(1./r, 
                 cth/(self.L[0] + d), 
-                2*sth/self.L[1])
+                np.abs(2*sth/self.L[1]))
                 
         # Calculate R0
-        # If the wire doesn't pass into the domain, r0 should be equal 
-        # to r1.
-        r0 = min(r1, d/cth)
-        # Finally, calculate delta-r
-        dr = r1 - r0
-        
-        # Calculate a wavenumber matrix
-        k = self.m[0]*cth/self.L[0] + self.m[1]*sth/self.L[1]
-        # Force k0 to have a non-zero number.  It will be ignored later
-        k[0] = -1.
-        # Calculate the line integral matrix
-        gam = (np.exp(2j*np.pi*k*r1) - np.exp(2j*np.pi*k*r0)) / (2j*np.pi*k)
-        # Handle the special m=n=0 case
-        gam[0,0] = dr
-        # Apply the x-axis phase induced by d
-        gam *= np.exp(-2j*np.pi*self.m[0]*d/self.L[0])
+        r0 = d/cth
 
-        # Flatten gamma to map it to the appropriate indices
-        gam = gam.flatten()
+        # Calculate a wavenumber matrix
+        nu = self.nu[0]*cth + self.nu[1]*sth
+        # Izero is a boolean index marking elements where k is zero
+        Izero = (nu == 0)
+        # Force k to a non-zero number
+        nu[Izero] = -1
         
-        # OK, initialize the result
-        LAM = np.empty((self.size,),dtype=float)
-        # Assign the real and imaginary portions to the appropriate 
-        # portions of the lambda vector
-        LAM[0::2] = gam.real[1:]
-        LAM[1::2] = gam.imag[1:]
-        # Assign the current offset term
-        LAM[1] = 1.
+        # Calculate the line integral matrix
+        gam = (np.exp(2j*np.pi*nu*r1) - np.exp(2j*np.pi*nu*r0)) / (2j*np.pi*nu)
+        # Handle the special m=n=0 case
+        gam[Izero] = r1-r0
+        # gam is now the "gamma" value described in the paper.  We will
+        # now, further modify the variable by the d-exponential 
+        LAM = (np.exp(-2j*np.pi*self.nu[0]*d) * gam).flatten()
+        # Modify the constant term to include the offset current as its
+        # imaginary part
+        #LAM[self.flatindex(0,0)] += 1j
         
         return LAM
+
+    def flatindex(self, m, n):
+        return np.ravel_multi_index(self.N+[m,n], 2*self.N+1)
+
+    def mnindex(self, index):
+        return np.unravel_index(index, 2*self.N+1)-self.N
 
     def include(self, r, d, theta, I):
         """INCLUDE - include a datum in the model
@@ -149,7 +156,7 @@ I   -   The total current measured in this position
 """
         lam = self.lam(r, d, theta)
         self.A += lam.reshape((lam.size,1)) * lam
-        self.C += I * lam
+        self.B += I * lam
 
     def read(self, filename):
         """Read from a file
@@ -174,15 +181,12 @@ Reads from a file or from an open WireFile instance
     def solve(self):
         """SOLVE - solve the system with the data already included
 """
-        #self.X = solve(self.A, self.C, assume_a='sym')
-        X = solve(self.A, self.C)
-        # Build the complex coefficients
-        c = X[2::2] + 1j*X[3::2]
-        # Deal with c0,0 specially
-        c[0] = X[0]
-        self.c = c.reshape(self.N+1)
+        self.C = solve(self.A, self.B, assume_a='sym')
+        #self.C = solve(self.A, self.B)
+        
         # Grab the offset current
-        self.I0 = X[1]
+        self.I0 = self.C[self.flatindex(0,0)].imag
+
 
     def grid(self,Nx=None, Ny=None):
         """GRID - evaluate the solution at grid points
@@ -201,18 +205,17 @@ the number of grid points in the x- and y-axes.
         # If no arguments are given
         if Nx is None:
             if Ny is None:
-                Nx,Ny = 2*self.N
+                Nx,Ny = 2*self.N+1
             else:
                 raise Exception('Cannot specify Ny without specifying Nx.')
         # If Nx is given
         elif Ny is None:
             Ny = Nx
-        # If Nx and Ny are given, do nothing
+        # If Nx and Ny are given, do nothing        
+        x = np.linspace(0,self.L[0],Nx)
+        y = np.linspace(-self.L[1]/2, self.L[1]/2, Ny)
         x,y = np.meshgrid(x,y)
-        
-        I = I0 + c*np.exp(2j*np.pi*(self.m[0]*x/self.L[0] + self.m[1]*y/self.L[1]))
-        return x,y,I.real
-        
+        return x,y
 
 class WireFile:
     def __init__(self, filename):
