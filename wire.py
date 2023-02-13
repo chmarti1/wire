@@ -7,6 +7,9 @@
 import numpy as np
 from scipy.linalg import solve
 import array,struct
+import time
+import multiprocessing as mp
+
 
 
 class WireSlice(object):
@@ -81,19 +84,30 @@ expansion.
         # establish wavenumber vectors
         self.nu = np.meshgrid(
                 np.arange(-self.N[0], self.N[0]+1)/self.L[0],
-                np.arange(-self.N[1], self.N[1]+1)/self.L[1],
-                indexing='ij', sparse=True)
+                np.arange(-self.N[1], self.N[1]+1)/self.L[1])
+        self.nu[0] = self.nu[0].reshape((self.ncoef,))
+        self.nu[1] = self.nu[1].reshape((self.ncoef,))
         
         # initialize a solution matrix and vectors
         self.C = None
         self.I0 = None
+        self.lock = False
         self.A = np.zeros((self.ncoef, self.ncoef), dtype=complex)
         self.B = np.zeros((self.ncoef,), dtype=complex)
         
         
     def __call__(self, x, y):
-        # To be written
-        pass
+        x,y = np.broadcast_arrays(x,y)
+        zshape = x.shape
+        x,y = x.reshape((x.size,1)),y.reshape((y.size,1));
+        
+        nux = self.nu[0].reshape((1,self.ncoef))
+        nuy = self.nu[1].reshape((1,self.ncoef))
+        
+        z = np.dot( np.exp(2j*np.pi*(nux*x + nuy*y)), self.C).real
+        
+        return z.reshape(zshape)
+        
         
     def lam(self, r, d, theta):
         """LAM - calculate the lambda vector for a given d and theta
@@ -101,13 +115,16 @@ expansion.
         # Does this theta actually intersect the domain?
         theta_critical = np.arctan(self.L[1] / (2*d))
         if not -theta_critical < theta < theta_critical or r<=d:
-            LAM = np.zeros((self.ncoef,),dtype=complex)
+            return np.zeros((self.ncoef,),dtype=complex)
             #LAM[self.flatindex(0,0)] = 1.0j
-            return LAM
+            #return LAM
    
         # Sines and cosines will come in handy repeatedly
         sth = np.sin(theta)
         cth = np.cos(theta)
+        
+        # Initialize the gamma values
+        gam = np.empty((self.ncoef,), dtype=complex)
         
         # Calculate R1
         # Since these raidii calculations can be infinite, first calculate
@@ -124,21 +141,17 @@ expansion.
         nu = self.nu[0]*cth + self.nu[1]*sth
         # Izero is a boolean index marking elements where k is zero
         Izero = (nu == 0)
-        # Force k to a non-zero number
-        nu[Izero] = -1
-        
-        # Calculate the line integral matrix
-        gam = (np.exp(2j*np.pi*nu*r1) - np.exp(2j*np.pi*nu*r0)) / (2j*np.pi*nu)
-        # Handle the special m=n=0 case
+        # Force nu to a non-zero number to avoid division by zero
+        # We will overwrite these values later
         gam[Izero] = r1-r0
+        Izero = np.logical_not(Izero)
+        # Calculate the line integral matrix
+        gam[Izero] = (np.exp(2j*np.pi*nu[Izero]*r1) - np.exp(2j*np.pi*nu[Izero]*r0)) / (2j*np.pi*nu[Izero])
+
         # gam is now the "gamma" value described in the paper.  We will
         # now, further modify the variable by the d-exponential 
-        LAM = (np.exp(-2j*np.pi*self.nu[0]*d) * gam).flatten()
-        # Modify the constant term to include the offset current as its
-        # imaginary part
-        #LAM[self.flatindex(0,0)] += 1j
-        
-        return LAM
+        return np.exp(-2j*np.pi*self.nu[0]*d) * gam
+
 
     def flatindex(self, m, n):
         return np.ravel_multi_index(self.N+[m,n], 2*self.N+1)
@@ -155,8 +168,19 @@ theta - the wire angle in radians
 I   -   The total current measured in this position
 """
         lam = self.lam(r, d, theta)
-        self.A += lam.reshape((lam.size,1)) * lam
-        self.B += I * lam
+        A = lam.reshape((lam.size,1)) * lam
+        lam *= I
+        while self.lock:
+            time.sleep(.0005)
+        self.lock=True
+        try:
+            self.A += A
+            self.B += lam
+        finally:
+            self.lock=False
+
+    def testme(self, args):
+        print(args)
 
     def read(self, filename):
         """Read from a file
@@ -173,20 +197,23 @@ Reads from a file or from an open WireFile instance
             return
         elif not isinstance(filename,WireFile):
             raise Exception('The file must be either a string path or a WireFile instance.')
-        
-        for r,d,theta,I in filename:
-            self.include(r,d,theta,I)
+
+        def errorme(exc):
+            raise exc
+        # Read in all data
+        #data = [line for line in filename]
+        with mp.Pool(mp.cpu_count()) as workers:
+            workers.map(self.include, filename)
+        # This works because a WireFile is an iterable object
+        # that returns the r,d,theta,I as a tuple
             
         
     def solve(self):
         """SOLVE - solve the system with the data already included
 """
-        self.C = solve(self.A, self.B, assume_a='sym')
-        #self.C = solve(self.A, self.B)
+        #self.C = np.linalg.solve(self.A, self.B)
+        self.C = solve(self.A, self.B, assume_a = 'sym')
         
-        # Grab the offset current
-        self.I0 = self.C[self.flatindex(0,0)].imag
-
 
     def grid(self,Nx=None, Ny=None):
         """GRID - evaluate the solution at grid points
@@ -288,3 +315,9 @@ class WireFile:
             raise Exception('The file is not opened in write mode.')
         self.fd.write(struct.pack(self.lineformat, r,d,theta,I))
 
+
+
+def read(filename):
+    wf = WireFile(filename)
+    with wf.open('r'):
+        

@@ -157,7 +157,8 @@ Array-like values of d and theta to use when generating the file.
                 for rindex, rr in enumerate(r):
                     for index,th in enumerate(theta):
                         I = self(rr,dd,th)
-                        II[index] = I
+                        if show:
+                            II[index] = I
                         wf.writeline(rr, dd, th, I)
                     if show:
                         ax[rindex,0].plot(theta,II,'k')
