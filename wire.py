@@ -68,6 +68,7 @@ expansion.
         self.L = np.broadcast_to(np.asarray(L, dtype=int), (2,))
         self.N = np.zeros([2], dtype=int)   # number of wavenumbers
         self.units = str(units)
+        self.points = 0
 
 
         if N is not None:
@@ -91,7 +92,6 @@ expansion.
         # initialize a solution matrix and vectors
         self.C = None
         self.I0 = None
-        self.lock = False
         self.A = np.zeros((self.ncoef, self.ncoef), dtype=complex)
         self.B = np.zeros((self.ncoef,), dtype=complex)
         
@@ -168,19 +168,9 @@ theta - the wire angle in radians
 I   -   The total current measured in this position
 """
         lam = self.lam(r, d, theta)
-        A = lam.reshape((lam.size,1)) * lam
-        lam *= I
-        while self.lock:
-            time.sleep(.0005)
-        self.lock=True
-        try:
-            self.A += A
-            self.B += lam
-        finally:
-            self.lock=False
-
-    def testme(self, args):
-        print(args)
+        self.A += lam.reshape((lam.size,1)) * lam
+        self.B += lam*I
+        self.points += 1
 
     def read(self, filename):
         """Read from a file
@@ -198,15 +188,34 @@ Reads from a file or from an open WireFile instance
         elif not isinstance(filename,WireFile):
             raise Exception('The file must be either a string path or a WireFile instance.')
 
-        def errorme(exc):
-            raise exc
-        # Read in all data
-        #data = [line for line in filename]
-        with mp.Pool(mp.cpu_count()) as workers:
-            workers.map(self.include, filename)
-        # This works because a WireFile is an iterable object
-        # that returns the r,d,theta,I as a tuple
+        
+        def worker(ws, wf, A, B, n, ll):
+            for r,d,theta,I in wf:
+                ws.include(r,d,theta,I)
+            ll.acquire()
+            try:
+                A += ws.A.flatten()
+                B += ws.B
+                n += ws.points
+            finally:
+                ll.release()
+                
+        lock = mp.Lock()
+        A = mp.Array('d', 2*int(self.ncoef*self.ncoef))
+        B = mp.Array('d', 2*int(self.ncoef))
+        n = mp.Value(int)
+        workers = []
+        for index in range(mp.cpu_count()):
+            w = mp.Process(target=worker, args=(self, filename, A, B, n, lock))
+            w.start()
+            workers.append(w)
+        for w in workers:
+            w.join()
             
+        print(A)
+                    
+        
+        
         
     def solve(self):
         """SOLVE - solve the system with the data already included
@@ -314,10 +323,4 @@ class WireFile:
         if self.isread or self.fd is None:
             raise Exception('The file is not opened in write mode.')
         self.fd.write(struct.pack(self.lineformat, r,d,theta,I))
-
-
-
-def read(filename):
-    wf = WireFile(filename)
-    with wf.open('r'):
         
