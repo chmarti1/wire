@@ -55,7 +55,6 @@
 typedef struct WireSlice {
     Element * AP;
     Element * B;
-    Element * C;
     unsigned int Nx, Ny;
     double Lx, Ly;
     unsigned int ncoef;
@@ -126,6 +125,10 @@ int ws_write(WireSlice_t * ws, char * filename);
 // spawn parallel threads for parsing data files.
 void *read_thread(void * ws);
 
+// The EJTH() function is about twice as fast as calling cexp() for
+// evaluating exp(j*theta).  Because there is no real component, it
+// can work with a single call to cosine instead of a power call.
+double complex ejtheta(double theta);
 
 int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, double Ly){
     unsigned int ii;
@@ -137,8 +140,7 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
     ws->Ly = Ly;    // Domain y-length
     
     ws->AP = NULL;      // Upper triangular packed solution matrix
-    ws->B = NULL;       // Constant vector
-    ws->C = NULL;       // Coefficient vector
+    ws->B = NULL;       // Solution vector
 
     ws->ndata = 0;      // Number of data points read into the problem
     ws->_halt = False;  // Used to signal threads to halt prematurely
@@ -154,21 +156,14 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
     ws->nAP = ws->ncoef * (ws->ncoef+1) / 2;
     
     // Allocate dynamic memory
-    ws->AP = malloc(ws->nAP * sizeof(Element));
-    ws->B = malloc(ws->ncoef * sizeof(Element));
-    ws->C = malloc(ws->ncoef * sizeof(Element));
-    if(ws->AP == NULL || ws->B == NULL || ws->C == NULL){
+    ws->AP = calloc(ws->nAP, sizeof(Element));
+    ws->B = calloc(ws->ncoef, sizeof(Element));
+    if(ws->AP == NULL || ws->B == NULL){
+        fprintf(stderr, "WS_INIT: Failed during memory allocation, nAP=%d, ncoef=%d\n",ws->nAP, ws->ncoef);
         ws_destruct(ws);
         return -1;
     }
 
-    // Initialize AP and B
-    for(ii=0; ii<ws->nAP; ii++)
-        ws->AP[ii] = 0;
-    for(ii=0; ii<ws->ncoef; ii++)
-        ws->B[ii] = 0;
-    // There is no need to initialize C
-    
     return 0;
 }
 
@@ -182,10 +177,7 @@ int ws_destruct(WireSlice_t * ws){
         free(ws->B);
         ws->B = NULL;
     }
-    if(ws->C){
-        free(ws->C);
-        ws->C = NULL;
-    }
+
     ws->ncoef=0;
     ws->ndata=0;
     ws->_halt = False;
@@ -221,6 +213,7 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     if(err){
         err = -2;
         ws->_halt = True;
+        fprintf(stderr,"WS_READ: encountered an error during thread creation.\n");
     }
     // Join the threads
     for(ii=0;ii<nthread;ii++){
@@ -234,6 +227,45 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
 }
 
 
+int ws_solve(WireSlice_t *ws){
+    lapack_int err;
+    /* Prototype from LAPACKE
+    lapack_int LAPACKE_zppsv( int matrix_layout, char uplo, lapack_int n,
+                          lapack_int nrhs, lapack_complex_double* ap,
+                          lapack_complex_double* b, lapack_int ldb );
+    */
+    err = LAPACKE_zppsv(    LAPACK_COL_MAJOR, 'U', ws->ncoef, 1, 
+                            ws->AP, ws->B, ws->ncoef);
+    return 0;
+}
+
+
+int ws_write(WireSlice_t *ws, char * filename){
+    FILE * fd = NULL;
+    
+    if(!(fd = fopen(filename,"w"))){
+        fprintf(stderr,"WS_WRITE: Failed to open file for writing:\n");
+        fprintf(stderr,"  %s", filename);
+        return -1;
+    }
+    
+    // Write header information
+    fwrite(&ws->Nx, sizeof(unsigned int), 1, fd);
+    fwrite(&ws->Ny, sizeof(unsigned int), 1, fd);
+    fwrite(&ws->Lx, sizeof(double), 1, fd);
+    fwrite(&ws->Ly, sizeof(double), 1, fd);
+    
+    // Write complex vector solution
+    fwrite(ws->B, sizeof(double complex), ws->ncoef, fd);
+    
+    fclose(fd);
+    fd = NULL;
+    return 0;
+}
+
+/*
+ *  HELPER FUNCTION DEFINITIONS
+ */
 void* read_thread(void *arg){
     WireSlice_t *ws;
     double buffer[BUFFER_SIZE * 4];
@@ -255,8 +287,9 @@ void* read_thread(void *arg){
                     r1,     // End radius
                     s_th,   // sine theta
                     c_th,   // cosine theta
-                    theta_crit, // legal theta range
-                    ftemp;  // General purpose intermdediate double
+                    h0,     // height for domain intersection test
+                    ft1,    // General purpose intermdediate double
+                    ft2;    //
     // Counters
     unsigned int    nread,  // Number of lines read in the current execution
                     ndata;  // Total number of lines processed in this thread
@@ -268,7 +301,7 @@ void* read_thread(void *arg){
                     n;      // y-axis wavenumber index
     // Helper constants
     int             izero,  // index corresponding to m=0, n=0
-                    ncoef;  // coefficient relating lam_i to n
+                    icoef;  // coefficient relating lam_i to n
 
     ws = (WireSlice_t *) arg;
     
@@ -277,15 +310,14 @@ void* read_thread(void *arg){
     B = calloc(ws->ncoef, sizeof(double complex));
     AP = calloc(ws->nAP, sizeof(double complex));
 
-
     // Calcualte the index coefficients
     // These give 
-    //      lam_i = m + n*ncoef + izero
+    //      lam_i = m + n*icoef + izero
     // when m in [-Nx, Nx]
     // and  n in [-Ny, Ny]
     // and  LAM[lam_i] = Lambda(m,n)
-    ncoef = (2*ws->Nx+1);
-    izero = ncoef*ws->Ny + ws->Nx;
+    icoef = (2*ws->Nx+1);
+    izero = icoef*ws->Ny + ws->Nx;
 
     // We'll keep track of the number of data points we've processed
     ndata = 0;
@@ -310,57 +342,72 @@ void* read_thread(void *arg){
             iwire = buffer[k+3];
             
             // calculate sine and cosine
-            s_th = sin(theta);
             c_th = cos(theta);
-            
-            // Calculate the critical angle
-            theta_crit = atan(0.5*ws->Ly/d);
+            s_th = sqrt(1-c_th*c_th);
             
             // Calculate the relevant radii
+            // r0 is the projection along the wire to the first domain edge
             r0 = d / c_th;
-            // When calculating r1, use 1/r1 so sin(0) won't be a problem
+            // Calculate the height at which the wire intersects the domain
+            // This isn't actually important - it's just the easiest way
+            // to verify that the wire passes through the domain.
+            h0 = fabs(r0 * s_th);
+            // r1 is the smallest of
+            //  (1) the wire radius
+            //  (2) the wire projection to the far edge of the domain
+            //  (3) the wire projection to either of the horizontal 
+            //      domain boundaries. 
+            // When the wire is horizontal, (3) is infinite, so we first
+            // calculate 1/r1 and accept the largest value.
+            // When the wire terminates inside the domain r1 = r
+            // When the wire doesn't reach the domain, r1 < r0
             r1 = 1/r;
-            ftemp = c_th / (d+ws->Lx);
-            r1 = r1 > ftemp ? r1 : ftemp;
-            ftemp = fabs(2*s_th/ws->Ly);
-            r1 = r1 > ftemp ? r1 : ftemp;
+            ft1 = c_th / (d+ws->Lx);    // Candidate: (d+Lx)/cos(theta)
+            r1 = r1 > ft1 ? r1 : ft1;
+            ft1 = fabs(2*s_th/ws->Ly);  // Candidate: Ly/2sin(theta)
+            r1 = r1 > ft1 ? r1 : ft1;
             r1 = 1/r1;
             // Only proceed if the wire intersects the domain
-            if( theta > -theta_crit && theta < theta_crit && r1 > r0){
-                // Calculate Lambda
+            // There are two ways for the wire to miss:
+            //  (1) the angle is too wide
+            //  (2) the disc is too far away and the wire doesn't reach
+            if(h0 < ws->Ly/2 && r1 > r0){
+                // Calculate the Lambda vector
                 // The reverse of Lambda is its complex conjugate, so
                 // only half of the coefficients need to be calculated.
+                // We'll iterate over ALL n-values, but only half of the
+                // m-values.
                 for(n=-ws->Ny; n <= (int)ws->Ny; n++){
                     // Deal with m=0 specially
-                    lam_i = n*ncoef + izero;
+                    lam_i = n*icoef + izero;
                     //nu_x = 0;     No need to calculate 0
                     nu_th = n*s_th/ws->Ly;
                     // Case out zero wavenumber
-                    if(n == 0 || nu_th == 0){
+                    if(n == 0 || nu_th ==0){
                         LAM[lam_i] = (r1 - r0);
                     }else{
-                        zt1 = 2 * M_PI * nu_th * I;
-                        LAM[lam_i] = (cexp(zt1*r1) - cexp(zt1*r0)) / zt1;
+                        ft1 = 2 * M_PI * nu_th;
+                        LAM[lam_i] = (ejtheta(ft1*r1) - ejtheta(ft1*r0)) / ft1 / I;
                     }
                     // Deal with m!=0 in complex conjugate pairs
                     for(m=1; m <= (int)ws->Nx; m++){
                         // Calculate the LAM index
-                        lam_i = m + n*ncoef + izero;
+                        lam_i = m + n*icoef + izero;
                         // Calculate horizontal and theta wavenumbers
                         nu_x = m/ws->Lx;
                         nu_th = nu_x*c_th + n*s_th/ws->Ly;
                         // Case out zero wavenumber
                         if(nu_th == 0){
-                            zt2 = cexp(-M_2_PI*I*nu_x*d) * (r1 - r0);
+                            zt1 = ejtheta(-2*M_PI*nu_x*d) * (r1-r0);
                         }else{
-                            zt1 = 2 * M_PI * nu_th * I;
-                            zt2 = -2 * M_PI * nu_x * d * I;
-                            zt2 = (cexp(zt2 + zt1*r1) - cexp(zt2 + zt1*r0)) / zt1;
+                            ft1 = 2 * M_PI * nu_th;
+                            ft2 = -2 * M_PI * nu_x * d;
+                            zt1 = (ejtheta(ft1*r1 + ft2) - ejtheta(ft1*r0 + ft2)) / ft1 / I;
                         }
-                        LAM[lam_i] = zt2;
+                        LAM[lam_i] = zt1;
                         // Assign the complex conjugate
-                        lam_i = -m -n*ncoef + izero;
-                        LAM[lam_i] = conj(zt2);
+                        lam_i = -m -n*icoef + izero;
+                        LAM[lam_i] = conj(zt1);
                     }// m
                 }// n
                 // Calculate contributions to AP and B
@@ -403,15 +450,10 @@ void* read_thread(void *arg){
     return NULL;
 }
 
-
-int ws_solve(WireSlice_t *ws){
-    lapack_int err;
-    /* Prototype from LAPACKE
-    lapack_int LAPACKE_zppsv( int matrix_layout, char uplo, lapack_int n,
-                          lapack_int nrhs, lapack_complex_double* ap,
-                          lapack_complex_double* b, lapack_int ldb );
-    */
-    err = LAPACKE_zppsv(    LAPACK_COL_MAJOR, 'U', ws->ncoef, 1, 
-                            ws->AP, ws->B, ws->ncoef);
-    return 0;
+// calculate exp(j*theta) efficiently
+double complex ejtheta(double theta){
+    double c_th;
+    c_th = cos(theta);
+    return CMPLX(c_th, sqrt(1. - c_th*c_th));
 }
+
