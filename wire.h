@@ -1,4 +1,5 @@
 #include <complex.h>
+#include <cblas.h>
 #include <lapacke.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -254,6 +255,7 @@ void* read_thread(void *arg){
                     r1,     // End radius
                     s_th,   // sine theta
                     c_th,   // cosine theta
+                    theta_crit, // legal theta range
                     ftemp;  // General purpose intermdediate double
     // Counters
     unsigned int    nread,  // Number of lines read in the current execution
@@ -311,47 +313,71 @@ void* read_thread(void *arg){
             s_th = sin(theta);
             c_th = cos(theta);
             
+            // Calculate the critical angle
+            theta_crit = atan(0.5*ws->Ly/d);
+            
             // Calculate the relevant radii
             r0 = d / c_th;
             // When calculating r1, use 1/r1 so sin(0) won't be a problem
             r1 = 1/r;
             ftemp = c_th / (d+ws->Lx);
-            r1 = r1 < ftemp ? r1 : ftemp;
+            r1 = r1 > ftemp ? r1 : ftemp;
             ftemp = fabs(2*s_th/ws->Ly);
-            r1 = r1 < ftemp ? r1 : ftemp;
+            r1 = r1 > ftemp ? r1 : ftemp;
             r1 = 1/r1;
-            
-            // Calculate Lambda
-            for(n=-ws->Ny; n <= (int)ws->Ny; n++){
-                for(m=-ws->Nx; m <= (int)ws->Nx; m++){
-                    // Calculate the LAM index
-                    lam_i = m + n*ncoef + izero;
-                    // Calculate horizontal and theta wavenumbers
-                    nu_x = m/ws->Lx;
-                    nu_th = nu_x*c_th + n*s_th/ws->Ly;
+            // Only proceed if the wire intersects the domain
+            if( theta > -theta_crit && theta < theta_crit && r1 > r0){
+                // Calculate Lambda
+                // The reverse of Lambda is its complex conjugate, so
+                // only half of the coefficients need to be calculated.
+                for(n=-ws->Ny; n <= (int)ws->Ny; n++){
+                    // Deal with m=0 specially
+                    lam_i = n*ncoef + izero;
+                    //nu_x = 0;     No need to calculate 0
+                    nu_th = n*s_th/ws->Ly;
                     // Case out zero wavenumber
-                    if(nu_th == 0){
-                        LAM[lam_i] = cexp(-M_2_PI*I*nu_x*d) * (r1 - r0);
+                    if(n == 0 || nu_th == 0){
+                        LAM[lam_i] = (r1 - r0);
                     }else{
                         zt1 = 2 * M_PI * nu_th * I;
-                        zt2 = -2 * M_PI * nu_x * d * I;
-                        LAM[lam_i] = (cexp(zt2 + zt1*r1) - cexp(zt2 + zt1*r0)) / zt1;
+                        LAM[lam_i] = (cexp(zt1*r1) - cexp(zt1*r0)) / zt1;
                     }
+                    // Deal with m!=0 in complex conjugate pairs
+                    for(m=1; m <= (int)ws->Nx; m++){
+                        // Calculate the LAM index
+                        lam_i = m + n*ncoef + izero;
+                        // Calculate horizontal and theta wavenumbers
+                        nu_x = m/ws->Lx;
+                        nu_th = nu_x*c_th + n*s_th/ws->Ly;
+                        // Case out zero wavenumber
+                        if(nu_th == 0){
+                            zt2 = cexp(-M_2_PI*I*nu_x*d) * (r1 - r0);
+                        }else{
+                            zt1 = 2 * M_PI * nu_th * I;
+                            zt2 = -2 * M_PI * nu_x * d * I;
+                            zt2 = (cexp(zt2 + zt1*r1) - cexp(zt2 + zt1*r0)) / zt1;
+                        }
+                        LAM[lam_i] = zt2;
+                        // Assign the complex conjugate
+                        lam_i = -m -n*ncoef + izero;
+                        LAM[lam_i] = conj(zt2);
+                    }// m
                 }// n
-            }// m
-            // Calculate contributions to AP and B
-            // repurpose m and n to be indices in Lambda
-            for(m=0;m<ws->ncoef;m++){
-                printf("%d: %lf + %lf j\n",m, creal(LAM[m]), cimag(LAM[n]));
-                zt1 = conj(LAM[m]);
-                B[m] += iwire * zt1;
-                for(n=m;n<ws->ncoef;n++){
-                    // The index in the packed matrix
-                    ap_i = m + (n+1)*n/2;
-                    AP[ap_i] += zt1 * LAM[n];
-                }// n
-            }// m
+                // Calculate contributions to AP and B
+                // repurpose m and n to be indices in Lambda
+                for(m=0;m<ws->ncoef;m++){
+                    zt1 = conj(LAM[m]);
+                    B[m] += iwire * zt1;
+                    for(n=m;n<ws->ncoef;n++){
+                        // The index in the packed matrix
+                        ap_i = m + (n+1)*n/2;
+                        AP[ap_i] += zt1 * LAM[n];
+                    }// n
+                }// m
+            }// intersection test
         }// k
+        fprintf(stdout,"=");
+        fflush(stdout);
     }// master while
     // Update the master struct
     // Block access until the array lock is released
@@ -359,14 +385,14 @@ void* read_thread(void *arg){
         usleep(500);
     ws->_alock = True;
     ws->ndata += ndata;
+    for(m=0;m<ws->ncoef;m++){
+        ws->B[m] += B[m];
+    }
+    for(m=0;m<ws->nAP;m++){
+        ws->AP[m] += AP[m];
+    }
     ws->_alock = False;
     
-
-    for(m=0;m<ws->ncoef;m++){
-        printf("%03d: %lf + %lf j\n", m, creal(B[m]), cimag(B[m]));
-    }
-
-    printf("%08X\n%08X\n%08X\n", (int) AP, (int)B, (int)LAM);
 
     free(AP);
     AP = NULL;
@@ -374,6 +400,18 @@ void* read_thread(void *arg){
     B = NULL;
     free(LAM);
     LAM = NULL;
-    printf("!?\n");
     return NULL;
+}
+
+
+int ws_solve(WireSlice_t *ws){
+    lapack_int err;
+    /* Prototype from LAPACKE
+    lapack_int LAPACKE_zppsv( int matrix_layout, char uplo, lapack_int n,
+                          lapack_int nrhs, lapack_complex_double* ap,
+                          lapack_complex_double* b, lapack_int ldb );
+    */
+    err = LAPACKE_zppsv(    LAPACK_COL_MAJOR, 'U', ws->ncoef, 1, 
+                            ws->AP, ws->B, ws->ncoef);
+    return 0;
 }
