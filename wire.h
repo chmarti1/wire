@@ -343,7 +343,7 @@ void* read_thread(void *arg){
             
             // calculate sine and cosine
             c_th = cos(theta);
-            s_th = sqrt(1-c_th*c_th);
+            s_th = sqrt(1.0-c_th*c_th);
             
             // Calculate the relevant radii
             // r0 is the projection along the wire to the first domain edge
@@ -356,15 +356,15 @@ void* read_thread(void *arg){
             //  (1) the wire radius
             //  (2) the wire projection to the far edge of the domain
             //  (3) the wire projection to either of the horizontal 
-            //      domain boundaries. 
+            //      domain boundaries (top or bottom). 
             // When the wire is horizontal, (3) is infinite, so we first
             // calculate 1/r1 and accept the largest value.
             // When the wire terminates inside the domain r1 = r
             // When the wire doesn't reach the domain, r1 < r0
             r1 = 1/r;
-            ft1 = c_th / (d+ws->Lx);    // Candidate: (d+Lx)/cos(theta)
+            ft1 = c_th / (d+ws->Lx);    // Candidate: r1=(d+Lx)/cos(theta)
             r1 = r1 > ft1 ? r1 : ft1;
-            ft1 = fabs(2*s_th/ws->Ly);  // Candidate: Ly/2sin(theta)
+            ft1 = fabs(2*s_th/ws->Ly);  // Candidate: r1=Ly/2sin(theta)
             r1 = r1 > ft1 ? r1 : ft1;
             r1 = 1/r1;
             // Only proceed if the wire intersects the domain
@@ -396,12 +396,13 @@ void* read_thread(void *arg){
                         // Calculate horizontal and theta wavenumbers
                         nu_x = m/ws->Lx;
                         nu_th = nu_x*c_th + n*s_th/ws->Ly;
+                        // Phase shift implied by the disc location
+                        ft2 = -2 * M_PI * nu_x * d;
                         // Case out zero wavenumber
                         if(nu_th == 0){
-                            zt1 = ejtheta(-2*M_PI*nu_x*d) * (r1-r0);
+                            zt1 = ejtheta(ft2) * (r1-r0);
                         }else{
                             ft1 = 2 * M_PI * nu_th;
-                            ft2 = -2 * M_PI * nu_x * d;
                             zt1 = (ejtheta(ft1*r1 + ft2) - ejtheta(ft1*r0 + ft2)) / ft1 / I;
                         }
                         LAM[lam_i] = zt1;
@@ -413,6 +414,9 @@ void* read_thread(void *arg){
                 // Calculate contributions to AP and B
                 // repurpose m and n to be indices in Lambda
                 for(m=0;m<ws->ncoef;m++){
+                    // Take the conjugate 
+                    // AP = sum LAM* LAM
+                    //  B = sum LAM* Iwire
                     zt1 = conj(LAM[m]);
                     B[m] += iwire * zt1;
                     for(n=m;n<ws->ncoef;n++){
