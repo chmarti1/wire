@@ -8,6 +8,7 @@
 #include <math.h>
 
 // XXX - may need the -fopenmp compiler directive for parallel processing? 
+// XXX - Need "-lpthread -lm -llapacke" in the linking stage
 
 #define False 0                 // Boolean constants
 #define True 1                  //
@@ -59,10 +60,10 @@ typedef struct WireSlice {
     double Lx, Ly;
     unsigned int ncoef;
     unsigned int nAP;
-    unsigned int ndata;
+    unsigned int ndata, nused;
     unsigned char _halt;
-    unsigned char _alock;
-    unsigned char _flock;
+    pthread_mutex_t _matlock;
+    pthread_mutex_t _filelock;
     FILE * target;
 } WireSlice_t;
 
@@ -142,10 +143,18 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
     ws->AP = NULL;      // Upper triangular packed solution matrix
     ws->B = NULL;       // Solution vector
 
-    ws->ndata = 0;      // Number of data points read into the problem
+    ws->ndata = 0;      // Number of data points found by ws_read()
+    ws->nused = 0;      // Number of data points that actually intersect the domain
     ws->_halt = False;  // Used to signal threads to halt prematurely
-    ws->_alock = False;  // Lock flag for multi-threading
-    ws->_flock = False;
+    // Initialize the mutexes for locking the master matrix and file
+    // Default shared state for pthread mutexes is PRIVATE - only one process.
+    if(     pthread_mutex_init(&ws->_matlock, NULL) ||
+            pthread_mutex_init(&ws->_filelock, NULL) ){
+        fprintf(stderr, "WS_INIT: Failed while initializing mutexes!?\n");
+        ws_destruct(ws);
+        return -1;
+    }
+    
     ws->target = NULL;  // File stream for reading data
     
     // Calculate the number of coefficients
@@ -181,8 +190,10 @@ int ws_destruct(WireSlice_t * ws){
     ws->ncoef=0;
     ws->ndata=0;
     ws->_halt = False;
-    ws->_flock = False;
-    ws->_alock = False;
+
+    pthread_mutex_destroy(&ws->_matlock);
+    pthread_mutex_destroy(&ws->_filelock);
+
     if(ws->target){
         fclose(ws->target);
         ws->target = NULL;
@@ -201,9 +212,7 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     // Open the file
     if(!(ws->target = fopen(filename,"r")))
         return -1;
-    // Initialize the halt flag and lock flags
-    ws->_alock = False;
-    ws->_flock = False;
+    // Set the threads to run until halted by one of them
     ws->_halt = False;
     // Create the specified number of threads
     err = 0;
@@ -219,6 +228,8 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     for(ii=0;ii<nthread;ii++){
         pthread_join(threads[ii], NULL);
     }
+    // After joining, print a newline to finalize the data useage numbers
+    printf("\n");
     // Close the file
     fclose(ws->target);
     ws->target = NULL;
@@ -291,8 +302,11 @@ void* read_thread(void *arg){
                     ft1,    // General purpose intermdediate double
                     ft2;    //
     // Counters
-    unsigned int    nread,  // Number of lines read in the current execution
-                    ndata;  // Total number of lines processed in this thread
+    unsigned int    ndata_this,  // Number of lines read in the current execution
+                    nused_this,  // Number of points used in the current exection
+                    ndata,  // Total number of lines read by this thread
+                    nused;  // Total number of points used by this thread
+
     // Indices      
     int             lam_i,  // Index in LAM
                     ap_i,   // Index in AP
@@ -311,7 +325,8 @@ void* read_thread(void *arg){
     AP = calloc(ws->nAP, sizeof(double complex));
 
     // Calcualte the index coefficients
-    // These give 
+    // These give the location in the Lambda vector for given vertical,
+    // horizontal wavenumber pair, (m,n)
     //      lam_i = m + n*icoef + izero
     // when m in [-Nx, Nx]
     // and  n in [-Ny, Ny]
@@ -321,21 +336,21 @@ void* read_thread(void *arg){
 
     // We'll keep track of the number of data points we've processed
     ndata = 0;
+    nused = 0;
     // Continue running until one of the threads signals halt.
     while(!ws->_halt){
         // Block execution until the file lock is released
-        while(ws->_flock)
-            usleep(500);
-        ws->_flock = True;
-        nread = fread(buffer, sizeof(double), BUFFER_SIZE*4, ws->target)/4;
-        ws->_flock = False;
+        pthread_mutex_lock(&ws->_filelock);
+        ndata_this = fread(buffer, sizeof(double), BUFFER_SIZE*4, ws->target)/4;
+        pthread_mutex_unlock(&ws->_filelock);
         // If this was the last of the data, signal for the threads to halt
-        if(nread < BUFFER_SIZE)
+        if(ndata_this < BUFFER_SIZE)
             ws->_halt = True;
         // Track the number of data points accumulated
-        ndata += nread;
+        ndata += ndata_this;
+        nused_this = 0;
         // Iterate over the buffer
-        for(k=0;k<4*nread;k+=4){
+        for(k=0;k<4*ndata_this;k+=4){
             r = buffer[k];
             d = buffer[k+1];
             theta = buffer[k+2];
@@ -372,6 +387,7 @@ void* read_thread(void *arg){
             //  (1) the angle is too wide
             //  (2) the disc is too far away and the wire doesn't reach
             if(h0 < ws->Ly/2 && r1 > r0){
+                nused_this ++;
                 // Calculate the Lambda vector
                 // The reverse of Lambda is its complex conjugate, so
                 // only half of the coefficients need to be calculated.
@@ -427,23 +443,26 @@ void* read_thread(void *arg){
                 }// m
             }// intersection test
         }// k
-        fprintf(stdout,"=");
+        // Update the data counters
+        nused += nused_this;
+        pthread_mutex_lock(&ws->_matlock);
+        ws->ndata += ndata_this;
+        ws->nused += nused_this;
+        pthread_mutex_unlock(&ws->_matlock);
+        fprintf(stdout, "\x1B""[1K""\x1B""[1G""Data: %d, Used: %d", ws->ndata, ws->nused);
         fflush(stdout);
     }// master while
     // Update the master struct
-    // Block access until the array lock is released
-    while(ws->_alock)
-        usleep(500);
-    ws->_alock = True;
-    ws->ndata += ndata;
+    // Block access until the matrix lock is released
+    pthread_mutex_lock(&ws->_matlock);
     for(m=0;m<ws->ncoef;m++){
         ws->B[m] += B[m];
     }
     for(m=0;m<ws->nAP;m++){
         ws->AP[m] += AP[m];
     }
-    ws->_alock = False;
-    
+    pthread_mutex_unlock(&ws->_matlock);
+
 
     free(AP);
     AP = NULL;
@@ -455,9 +474,14 @@ void* read_thread(void *arg){
 }
 
 // calculate exp(j*theta) efficiently
+// This is approximately 42ms per execution, while
+// cexp( ) is approimately 66ms per execution.
 double complex ejtheta(double theta){
-    double c_th;
+    double c_th, dummy;
     c_th = cos(theta);
+    // Should the sine be negative?
+    if(modf(theta / (2*M_PI), &dummy) >= 0.5)
+        return CMPLX(c_th, -sqrt(1. - c_th*c_th));
     return CMPLX(c_th, sqrt(1. - c_th*c_th));
 }
 
