@@ -240,13 +240,31 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
 
 int ws_solve(WireSlice_t *ws){
     lapack_int err;
-    /* Prototype from LAPACKE
+    //lapack_int *ipiv;
+    //ipiv = malloc(ws->ncoef * sizeof(lapack_int));
+    
+    /* Prototype from LAPACKE for Hermitian matrix
     lapack_int LAPACKE_zppsv( int matrix_layout, char uplo, lapack_int n,
                           lapack_int nrhs, lapack_complex_double* ap,
                           lapack_complex_double* b, lapack_int ldb );
     */
+    
     err = LAPACKE_zppsv(    LAPACK_COL_MAJOR, 'U', ws->ncoef, 1, 
                             ws->AP, ws->B, ws->ncoef);
+    
+    
+    
+    /* Prototype from LAPACKE for symmetrical complex matrix
+    lapack_int LAPACKE_zspsv( int matrix_layout, char uplo, lapack_int n,
+                          lapack_int nrhs, lapack_complex_double* ap,
+                          lapack_int* ipiv, lapack_complex_double* b,
+                          lapack_int ldb );
+    */
+    /*
+    err = LAPACKE_zspsv(    LAPACK_COL_MAJOR, 'U', ws->ncoef, 1, 
+                            ws->AP, ipiv, ws->B, ws->ncoef);
+    free(ipiv);
+    */
     return 0;
 }
 
@@ -357,8 +375,9 @@ void* read_thread(void *arg){
             iwire = buffer[k+3];
             
             // calculate sine and cosine
-            c_th = cos(theta);
-            s_th = sqrt(1.0-c_th*c_th);
+            zt1 = ejtheta(theta);
+            c_th = creal(zt1);
+            s_th = cimag(zt1);
             
             // Calculate the relevant radii
             // r0 is the projection along the wire to the first domain edge
@@ -396,7 +415,7 @@ void* read_thread(void *arg){
                 for(n=-ws->Ny; n <= (int)ws->Ny; n++){
                     // Deal with m=0 specially
                     lam_i = n*icoef + izero;
-                    //nu_x = 0;     No need to calculate 0
+                    //nu_x = 0;     No need to calculate nu_x
                     nu_th = n*s_th/ws->Ly;
                     // Case out zero wavenumber
                     if(n == 0 || nu_th ==0){
@@ -434,6 +453,7 @@ void* read_thread(void *arg){
                     // AP = sum LAM* LAM
                     //  B = sum LAM* Iwire
                     zt1 = conj(LAM[m]);
+                    //zt1 = LAM[m];
                     B[m] += iwire * zt1;
                     for(n=m;n<ws->ncoef;n++){
                         // The index in the packed matrix
@@ -474,7 +494,7 @@ void* read_thread(void *arg){
 }
 
 // calculate exp(j*theta) efficiently
-// This is approximately 42ms per execution, while
+// This is approximately 42ms per execution on jane, while
 // cexp( ) is approimately 66ms per execution.
 double complex ejtheta(double theta){
     double c_th, dummy;

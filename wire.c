@@ -20,7 +20,7 @@ int main(int argc, char *argv[]){
                 printf("%6.1lf+%6.1lfj,  ", creal(ws.AP[ii]), cimag(ws.AP[ii]));
             }else{
                 ii = n + m*(m+1)/2;
-                printf("%6.1lf+%6.1lfj,  ", creal(ws.AP[ii]), -cimag(ws.AP[ii]));
+                printf("%6.1lf+%6.1lfj,  ", creal(ws.AP[ii]), cimag(ws.AP[ii]));
             }
         }
         printf("],\n");
