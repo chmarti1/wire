@@ -236,7 +236,7 @@ if __name__ == '__main__':
     ws = wire.WireSlice(1,k=2)
     ts = TestSection()
     ts.addmember(CircleSignal(0.5,0,0.4,1.))
-    ts.addmember(CircleSignal(0.5,0,0.3,-1.))
+    #ts.addmember(CircleSignal(0.5,0,0.3,-1.))
     ts.generate('test.wf', 3, np.linspace(3,2,51), np.linspace(-.5,.5,51))
 
     ws.read('test.wf')

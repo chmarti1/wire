@@ -60,7 +60,7 @@ typedef struct WireSlice {
     double Lx, Ly;
     unsigned int ncoef;
     unsigned int nAP;
-    unsigned int ndata, nused;
+    unsigned int ntotal, ndata, nused;
     unsigned char _halt;
     pthread_mutex_t _matlock;
     pthread_mutex_t _filelock;
@@ -143,6 +143,7 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
     ws->AP = NULL;      // Upper triangular packed solution matrix
     ws->B = NULL;       // Solution vector
 
+    ws->ntotal = 0;     // Total number of data point available to ws_read()
     ws->ndata = 0;      // Number of data points found by ws_read()
     ws->nused = 0;      // Number of data points that actually intersect the domain
     ws->_halt = False;  // Used to signal threads to halt prematurely
@@ -212,6 +213,11 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     // Open the file
     if(!(ws->target = fopen(filename,"r")))
         return -1;
+    // Detect the nuber of available data points
+    fseek(ws->target, 0, SEEK_END);
+    ws->ntotal = ftell(ws->target) / (4 * sizeof(double));
+    fseek(ws->target, 0, SEEK_SET);
+    
     // Set the threads to run until halted by one of them
     ws->_halt = False;
     // Create the specified number of threads
@@ -422,7 +428,7 @@ void* read_thread(void *arg){
                         LAM[lam_i] = (r1 - r0);
                     }else{
                         ft1 = 2 * M_PI * nu_th;
-                        LAM[lam_i] = (ejtheta(ft1*r1) - ejtheta(ft1*r0)) / ft1 / I;
+                        LAM[lam_i] = (ejtheta(ft1*r1) - ejtheta(ft1*r0)) / (ft1 * I);
                     }
                     // Deal with m!=0 in complex conjugate pairs
                     for(m=1; m <= (int)ws->Nx; m++){
@@ -438,7 +444,7 @@ void* read_thread(void *arg){
                             zt1 = ejtheta(ft2) * (r1-r0);
                         }else{
                             ft1 = 2 * M_PI * nu_th;
-                            zt1 = (ejtheta(ft1*r1 + ft2) - ejtheta(ft1*r0 + ft2)) / ft1 / I;
+                            zt1 = (ejtheta(ft1*r1 + ft2) - ejtheta(ft1*r0 + ft2)) / (ft1 * I);
                         }
                         LAM[lam_i] = zt1;
                         // Assign the complex conjugate
@@ -446,6 +452,7 @@ void* read_thread(void *arg){
                         LAM[lam_i] = conj(zt1);
                     }// m
                 }// n
+                
                 // Calculate contributions to AP and B
                 // repurpose m and n to be indices in Lambda
                 for(m=0;m<ws->ncoef;m++){
@@ -455,7 +462,7 @@ void* read_thread(void *arg){
                     zt1 = conj(LAM[m]);
                     //zt1 = LAM[m];
                     B[m] += iwire * zt1;
-                    for(n=m;n<ws->ncoef;n++){
+                    for(n=m;n<ws->ncoef-m;n++){
                         // The index in the packed matrix
                         ap_i = m + (n+1)*n/2;
                         AP[ap_i] += zt1 * LAM[n];
@@ -469,7 +476,10 @@ void* read_thread(void *arg){
         ws->ndata += ndata_this;
         ws->nused += nused_this;
         pthread_mutex_unlock(&ws->_matlock);
-        fprintf(stdout, "\x1B""[1K""\x1B""[1G""Data: %d, Used: %d", ws->ndata, ws->nused);
+        fprintf(stdout, "\x1B""[1K""\x1B""[1G""Total / Processed / Used :: %d / %d(%4.1f%%) / %d(%4.1f%%)", 
+                ws->ntotal, 
+                ws->ndata, 100*((float) ws->ndata)/ws->ntotal, 
+                ws->nused, 100*((float) ws->nused)/ws->ndata);
         fflush(stdout);
     }// master while
     // Update the master struct
@@ -497,10 +507,11 @@ void* read_thread(void *arg){
 // This is approximately 42ms per execution on jane, while
 // cexp( ) is approimately 66ms per execution.
 double complex ejtheta(double theta){
-    double c_th, dummy;
+    double c_th, mod_theta;
     c_th = cos(theta);
-    // Should the sine be negative?
-    if(modf(theta / (2*M_PI), &dummy) >= 0.5)
+    mod_theta = theta / (2*M_PI);
+    mod_theta -= floor(mod_theta);
+    if(mod_theta >= 0.5)
         return CMPLX(c_th, -sqrt(1. - c_th*c_th));
     return CMPLX(c_th, sqrt(1. - c_th*c_th));
 }

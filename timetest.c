@@ -9,10 +9,11 @@
 
 // calculate exp(j*theta) efficiently
 double complex ejtheta(double theta){
-    double c_th, dummy;
+    double c_th, mod_theta;
     c_th = cos(theta);
-    // Should the sine be negative?
-    if(modf(theta / (2*M_PI), &dummy) >= 0.5)
+    mod_theta = theta / (2*M_PI);
+    mod_theta -= floor(mod_theta);
+    if(mod_theta >= 0.5)
         return CMPLX(c_th, -sqrt(1. - c_th*c_th));
     return CMPLX(c_th, sqrt(1. - c_th*c_th));
 }
@@ -23,7 +24,7 @@ int main(int argc, char *argv[]){
     double complex ee;
     clock_t tt;
     
-    for(theta = 0; theta<2*M_PI; theta+=10*DTHETA){
+    for(theta = -4*M_PI; theta<-2*M_PI; theta+=10*DTHETA){
         ee = ejtheta(theta);
         printf("%6.4lf : %7.4lf+%7.4lfj\n", theta, creal(ee), cimag(ee));
     }    

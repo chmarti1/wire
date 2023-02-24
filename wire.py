@@ -324,3 +324,33 @@ class WireFile:
             raise Exception('The file is not opened in write mode.')
         self.fd.write(struct.pack(self.lineformat, r,d,theta,I))
         
+
+
+def lam(r,d,theta,N,L):
+    Nx,Ny = N
+    Lx,Ly = L
+    
+    ncoef = (2*Nx+1)*(2*Ny+1)
+    m,n = np.meshgrid(np.arange(-Nx,Nx+1,1), np.arange(-Ny,Ny+1,1))
+    m = m.reshape((ncoef,))
+    n = n.reshape((ncoef,))
+    
+    
+    c_th = np.cos(theta)
+    s_th = np.sin(theta)
+    
+    r0 = d / c_th
+    r1 = 1./max(1/r, np.abs(2*s_th/Ly), c_th/(d+Lx))
+    
+    nu_x = c_th * m / Lx
+    nu_th = nu_x + s_th * n/Ly
+
+    LAM = np.empty((ncoef,), dtype=complex)
+
+    Izero = (nu_th == 0)
+    
+    LAM[Izero] = (r1-r0)*np.exp(-2j*np.pi*nu_x[Izero]*d)
+    Izero = np.logical_not(Izero)
+    LAM[Izero] = (np.exp(2j*np.pi*(nu_th[Izero]*r1-nu_x[Izero]*d)) - np.exp(2j*np.pi*(nu_th[Izero]*r0-nu_x[Izero]*d)))/(2j*np.pi*nu_th[Izero])
+
+    return LAM
