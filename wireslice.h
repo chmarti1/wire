@@ -217,6 +217,10 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     fseek(ws->target, 0, SEEK_END);
     ws->ntotal = ftell(ws->target) / (4 * sizeof(double));
     fseek(ws->target, 0, SEEK_SET);
+
+    printf("  Using %d threads to read from file: %s\n", nthread, filename);
+    printf("    Nx=%d, Ny=%d\n", ws->Nx, ws->Ny);
+    printf("    Lx=%lf, Ly=%lf\n", ws->Lx, ws->Ly);
     
     // Set the threads to run until halted by one of them
     ws->_halt = False;
@@ -229,9 +233,6 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
         err = -2;
         ws->_halt = True;
         fprintf(stderr,"WS_READ: encountered an error during thread creation.\n");
-    }else{
-        printf("Reading from file: %s\n", filename);
-        printf("  in %d threads.\n", nthread);
     }
     // Join the threads
     for(ii=0;ii<nthread;ii++){
@@ -274,7 +275,7 @@ int ws_solve(WireSlice_t *ws){
                             ws->AP, ipiv, ws->B, ws->ncoef);
     free(ipiv);
     */
-    return 0;
+    return err;
 }
 
 
@@ -465,7 +466,7 @@ void* read_thread(void *arg){
                     zt1 = conj(LAM[m]);
                     //zt1 = LAM[m];
                     B[m] += iwire * zt1;
-                    for(n=m;n<ws->ncoef-m;n++){
+                    for(n=m;n<ws->ncoef;n++){
                         // The index in the packed matrix
                         ap_i = m + (n+1)*n/2;
                         AP[ap_i] += zt1 * LAM[n];
