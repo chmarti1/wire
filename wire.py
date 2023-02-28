@@ -8,7 +8,7 @@ import numpy as np
 from scipy.linalg import solve
 import array,struct
 import time
-import multiprocessing as mp
+import matplotlib.pyplot as plt
 
 
 
@@ -326,31 +326,119 @@ class WireFile:
         
 
 
-def lam(r,d,theta,N,L):
-    Nx,Ny = N
-    Lx,Ly = L
+class SliceData:
+    def __init__(self, filename):
+        self.N = None
+        self.L = None
+        self.C = None
+        self.C_mn = None
+        self.I0 = None
+        self.nu = None
+        self.nu_mn = None
+        self.ncoef = 0
+        self.filename = filename
+        
+        with open(filename,'rb') as ff:
+            raw = ff.read(struct.calcsize('II'))
+            self.N = np.array(struct.unpack('II',raw), dtype=int)
+            raw = ff.read(struct.calcsize('dd'))
+            self.L = np.array(struct.unpack('dd', raw), dtype=float)
+            self.ncoef = np.prod(2*self.N+1)
+            raw = ff.read(2 * (self.ncoef+1) * struct.calcsize('d'))
+            raw = array.array('d', raw)
+            nn = len(raw)
+            if nn//2 != self.ncoef+1:
+                raise Exception(f'SliceData: Coefficient dimension missmatch; NCOEF: {self.ncoef} NREAD: {nn//2}')
+            nn -= 2
+            self.C = np.array(raw[0:nn:2]) + 1j*np.array(raw[1:nn:2])
+            self.C_mn = np.reshape(self.C, 2*self.N+1)
+            self.I0 = raw[nn]
     
-    ncoef = (2*Nx+1)*(2*Ny+1)
-    m,n = np.meshgrid(np.arange(-Nx,Nx+1,1), np.arange(-Ny,Ny+1,1))
-    m = m.reshape((ncoef,))
-    n = n.reshape((ncoef,))
-    
-    
-    c_th = np.cos(theta)
-    s_th = np.sin(theta)
-    
-    r0 = d / c_th
-    r1 = 1./max(1/r, np.abs(2*s_th/Ly), c_th/(d+Lx))
-    
-    nu_x = c_th * m / Lx
-    nu_th = nu_x + s_th * n/Ly
+        # Initialize the nu arrays
+        self.nu_mn = np.meshgrid(
+                np.arange(-self.N[0], self.N[0]+1)/self.L[0],
+                np.arange(-self.N[1], self.N[1]+1)/self.L[1])
+        self.nu = [this.reshape((self.ncoef,)) for this in self.nu_mn]
 
-    LAM = np.empty((ncoef,), dtype=complex)
-
-    Izero = (nu_th == 0)
     
-    LAM[Izero] = (r1-r0)*np.exp(-2j*np.pi*nu_x[Izero]*d)
-    Izero = np.logical_not(Izero)
-    LAM[Izero] = (np.exp(2j*np.pi*(nu_th[Izero]*r1-nu_x[Izero]*d)) - np.exp(2j*np.pi*(nu_th[Izero]*r0-nu_x[Izero]*d)))/(2j*np.pi*nu_th[Izero])
+    def __call__(self, x, y):
+        x,y = np.broadcast_arrays(x,y)
+        zshape = x.shape
+        x,y = x.reshape((x.size,1)),y.reshape((y.size,1));
+        
+        nux = self.nu[0].reshape((1,self.ncoef))
+        nuy = self.nu[1].reshape((1,self.ncoef))
+        
+        z = np.dot( np.exp(2j*np.pi*(nux*x + nuy*y)), self.C).real
+        
+        return z.reshape(zshape)
+        
+    def __getitem__(self, key):
+        if isinstance(key,tuple):
+            return self.C[self.mn_to_index(*key)]
+        else:
+            return self.C[key]
+            
+    def mn_to_index(self, m, n):
+        """Calculate the serial index corresponding to m,n
+    index = SD.mn_to_index(m,n)
+"""        
+        if abs(m) > self.N[0]:
+            raise KeyError(f'SliceData[m,n] index is out of range: m={m}; Nx={self.N[0]}')
+        elif abs(n) > self.N[1]:
+            raise KeyError(f'SliceData[m,n] index is out of range: n={n}; Ny={self.N[1]}')
+        return (m+self.N[0]) + (n+self.N[1])*(2*self.N[0]+1)
 
-    return LAM
+    def index_to_mn(self, index):
+        """Calculate the m,n integers from the serial index
+    m,n = SD.mn_to_index(index)
+"""        
+        if index<0 or index >= self.ncoef:
+            raise KeyError(f'SliceData[index] index is out of range: index={index}; ncoef={self.ncoef}')
+        n,m = divmod(index, 2*self.N[0]+1)
+        return m-self.N[0], n-self.N[1]
+        
+    def grid(self,Nx=None, Ny=None):
+        """GRID - evaluate the solution at grid points
+    x,y,I = grid()
+        OR
+    x,y,I = grid(N)
+        Or
+    x,y,I = grid(Nx, Ny)
+    
+If no argument is given, the grid spacing is selected automatically 
+based on the highest wave number in each axis.  If a single scalar 
+argument is given, it is treated as the number of grid oints in each
+axis.  If tuple pair of arguments are found, they are interpreted as 
+the number of grid points in the x- and y-axes.
+"""
+        # If no arguments are given
+        if Nx is None:
+            if Ny is None:
+                Nx,Ny = 4*self.N+2
+            else:
+                raise Exception('Cannot specify Ny without specifying Nx.')
+        # If Nx is given
+        elif Ny is None:
+            Ny = Nx
+        # If Nx and Ny are given, do nothing        
+        x = np.linspace(0,self.L[0],Nx)
+        y = np.linspace(-self.L[1]/2, self.L[1]/2, Ny)
+        x,y = np.meshgrid(x,y)
+        return x,y
+
+    def show(self, x, y, ax=None):
+        
+        # If the axes are not specified, create a new figure and a new
+        # axes.
+        if ax is None:
+            fig,ax = plt.subplots(1,1)
+        # If the axes are specified, grab the parent figure
+        else:
+            fig = ax.get_figure()
+        
+        ax.pcolor(x,y,self(x,y), shading='auto')
+        ax.set_aspect(self.L[1] / self.L[0])
+        ax.set_xlim([0, self.L[0]])
+        ax.set_ylim([-self.L[1]/2, self.L[1]/2])
+        plt.show()

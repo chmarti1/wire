@@ -159,7 +159,7 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
     ws->target = NULL;  // File stream for reading data
     
     // Calculate the number of coefficients
-    ws->ncoef = (2*Nx+1) * (2*Ny+1);
+    ws->ncoef = (2*Nx+1) * (2*Ny+1) + 1;
     // Calculate the number of unique packed coefficients in AP
     // This is an upper-diagonal matrix representing an Hermitian matrix
     // so the lower diagonal can be ignored.
@@ -456,6 +456,8 @@ void* read_thread(void *arg){
                         LAM[lam_i] = conj(zt1);
                     }// m
                 }// n
+                // Assign the offset current coefficient
+                LAM[ws->ncoef-1] = 1.;
                 
                 // Calculate contributions to AP and B
                 // repurpose m and n to be indices in Lambda

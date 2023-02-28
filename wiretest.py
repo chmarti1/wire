@@ -1,11 +1,10 @@
+#!/usr/bin/python3
 # Wiretest
 #   Generate pseudo data to test the wiretools pacakge
 
 import wire
 import numpy as np
-import scipy as sp
 import matplotlib.pyplot as plt
-import array,struct
 
 class ProtoSignal(object):
     pass
@@ -166,78 +165,10 @@ Array-like values of d and theta to use when generating the file.
         if show:
             plt.show()
 
-class WireData:
-    def __init__(self, filename):
-        self.N = None
-        self.L = None
-        self.C = None
-        self.ncoef = 0
-        
-        with open(filename,'rb') as ff:
-            raw = ff.read(struct.calcsize('II'))
-            self.N = np.array(struct.unpack('II',raw), dtype=int)
-            raw = ff.read(struct.calcsize('dd'))
-            self.L = np.array(struct.unpack('dd', raw), dtype=float)
-            self.ncoef = np.prod(2*self.N+1)
-            raw = ff.read(2 * self.ncoef * struct.calcsize('d'))
-            raw = array.array('d', raw)
-            self.C = np.array(raw[0::2]) + 1j*np.array(raw[1::2])
-    
-        # Initialize the nu arrays
-        self.nu = np.meshgrid(
-                np.arange(-self.N[0], self.N[0]+1)/self.L[0],
-                np.arange(-self.N[1], self.N[1]+1)/self.L[1])
-        self.nu[0] = self.nu[0].reshape((self.ncoef,))
-        self.nu[1] = self.nu[1].reshape((self.ncoef,))
-    
-    def __call__(self, x, y):
-        x,y = np.broadcast_arrays(x,y)
-        zshape = x.shape
-        x,y = x.reshape((x.size,1)),y.reshape((y.size,1));
-        
-        nux = self.nu[0].reshape((1,self.ncoef))
-        nuy = self.nu[1].reshape((1,self.ncoef))
-        
-        z = np.dot( np.exp(2j*np.pi*(nux*x + nuy*y)), self.C).real
-        
-        return z.reshape(zshape)
-            
-    def grid(self,Nx=None, Ny=None):
-        """GRID - evaluate the solution at grid points
-    x,y,I = grid()
-        OR
-    x,y,I = grid(N)
-        Or
-    x,y,I = grid(Nx, Ny)
-    
-If no argument is given, the grid spacing is selected automatically 
-based on the highest wave number in each axis.  If a single scalar 
-argument is given, it is treated as the number of grid oints in each
-axis.  If tuple pair of arguments are found, they are interpreted as 
-the number of grid points in the x- and y-axes.
-"""
-        # If no arguments are given
-        if Nx is None:
-            if Ny is None:
-                Nx,Ny = 2*self.N+1
-            else:
-                raise Exception('Cannot specify Ny without specifying Nx.')
-        # If Nx is given
-        elif Ny is None:
-            Ny = Nx
-        # If Nx and Ny are given, do nothing        
-        x = np.linspace(0,self.L[0],Nx)
-        y = np.linspace(-self.L[1]/2, self.L[1]/2, Ny)
-        x,y = np.meshgrid(x,y)
-        return x,y
-        
 
 if __name__ == '__main__':
-    ws = wire.WireSlice(1,k=2)
     ts = TestSection()
-    ts.addmember(CircleSignal(0.5,0,0.4,1.))
-    #ts.addmember(CircleSignal(0.5,0,0.3,-1.))
-    ts.generate('test.wf', 3, np.linspace(3,2,51), np.linspace(-.5,.5,51))
+    ts.addmember(CircleSignal(0.4,0,0.35,1.))
+    ts.addmember(CircleSignal(0.4,0,0.25,-1.))
+    ts.generate('test.wf', 4, np.linspace(4,3,101), np.linspace(-.18,.18,101),show=True)
 
-    ws.read('test.wf')
-    ws.solve()
