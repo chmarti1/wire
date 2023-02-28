@@ -69,34 +69,34 @@ The integral of $\I$ requires an $x,y$ parametric formulation of the wire's path
 \hat{e}_\theta = \cos(\theta) \ui + \sin(\theta) \uj.
 \end{align}
 
-
-If $r$ is the distance along the wire from the disc center, the corresponding location in $(x,y)$ is
+If $r$ is the distance along the wire from the disc center at $x=-d$, the corresponding location in $(x,y)$ is
 \begin{align}
 \x &= r \eth - d \ui
 \end{align}
-The wavenumber along the wire (in the $\eth$ direction) can be written as a scalar,
+The dot product of $\x$ and $\vnu$ yields two terms along the wire's path; one with the wavenumber along the wire (in the $\eth$ direction) and one with the wavenumber in the horizontal axis (in the $\ui$ direction),
 \begin{align}
-\nuth &= \vnu \cdot \hat{e}_\theta\nonumber\\
- &= \frac{m}{L_x} \cos(\theta) + \frac{n}{L_y} \sin(\theta).
+\vnu \cdot \x &= r (\vnu \cdot \hat{e}_\theta) - d (\vnu \cdot \ui)\nonumber\\
+ &= \nu_{m,n|\theta} r - \nu_{m,n|x} d\\
+\nu_{m,n|\theta} &= \frac{m}{L_x} \cos(\theta) + \frac{n}{L_y} \sin(\theta)\\
+\nu_{m,n|x} &= \frac{m}{L_x}.
 \end{align}
 In the domain, the term still has its two-dimensional wave properties, but if we were to travel only along a wire at angle, $\theta$, the $(m,n)$ term of the expansion would appear to have this wave number.  Note that it can be zero, even when both $x-$ and $y-$components of $\vnu$ are non-zero; when $\vnu$ is normal to $\eth$.
 
-When we substitute the wire path, $r \hat{e}_\theta - d\ui$, for $\x$, a single term of the Fourier expansion becomes
+Once substituted into the Fourier expansion, a single term becomes
 \begin{align*}
-&c_{m,n} \exp\left(2\pi j \vnu \cdot \x \right)\\
-&\hspace{2em}= c_{m,n} \exp\Bigl[2\pi j \vnu \cdot (r\hat{e}_\theta - d \ui) \Bigr]\\
-&\hspace{2em}= c_{m,n} \exp\Bigl[2\pi j \left(\nuth\,r - \nu_{m,n|x} d\right)\Bigr].
+c_{m,n} \exp\left(2\pi j \vnu \cdot \x \right)\hspace{-8em}&\\
+&= c_{m,n} \exp\Bigl[2\pi j \left(\nuth\,r - \nu_{m,n|x} d\right)\Bigr].
 \end{align*}
 Here, the disc center location, $d$, appears intuitively as a phase shift in the horizontal direction only.  Recall that $\nu_{m,n|x}$ is simply $m / L_x$.
 
 In order to integrate along this function, we need to establish the radius at which the wire crosses into the domain, $R_0$, the radius at which the wire either terminates or leaves the domain, $R_1$:
 \begin{align}
-R_0 &= \frac{d}{c_\theta}\\
+R_0 &= \frac{d}{\cos(\theta)}\\
 R_1 &= \min\left(\ R,\ \frac{d + L_x}{\cos(\theta)},\ \left|\frac{L_y}{2\sin(\theta)}\right|\ \right)
 \end{align}
-The integral is a sum of surface currents along the wire's length at moment in time, so the disc position parameters, $d$ and $\theta$, are constant.  For compactness of notation, it will become convenient to express the trigonometric functions on $\theta$ as constants, $c_\theta$ and $s_\theta$.
+The integral is a sum of surface currents along the wire's length at moment in time, so the disc position parameters, $d$ and $\theta$, are constant.
 
-For an integral over $r$, all but the last portion of the term above is constant, so it is convenient to define a new parameter, $\lambda_{m,n}$, which represents the value of this term integrated over $r$:
+It is convenient to define a new parameter, $\lambda_{m,n}$, which represents the value of the exponential integrated over $r$:
 \begin{align}
 \lambda_{m,n}(d,\theta) &= \int_{R_0}^{R_1} \exp\Bigl[2\pi j \left(\nuth\,r - \nu_{m,n|x}\,d\right)\Bigr] \d r \nonumber\\
  &= \left\{\begin{array}{c@{\ :\ }l}
@@ -105,7 +105,7 @@ For an integral over $r$, all but the last portion of the term above is constant
 \end{array}
 \right.
 \end{align}
-It is worth repeating that the wavenumber, $\nuth$, can be zero when $m=n=0$ or when $\x$ is exactly normal to the wavenumber vector.
+It is worth repeating that the wavenumber, $\nuth$, can be zero when $m=n=0$ or when $\eth$ is exactly normal to the wavenumber vector.
 
 This yields an expression for the total wire current
 \begin{align}
@@ -119,102 +119,22 @@ Every experiment begins by zeroing the current signal to the nearest practical p
 I(d,\theta) &= I_0 + \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \lambda_{m,n}(d,\theta)\label{eqn:I}.
 \end{align}
 
-\subsection{Alternate realization}
-
-{\bf This needs to be rewritten or deleted}
-
-Because the $c_{m,n}$ coefficients must occur in complex conjugate pairs, half of the $2(2N_x+1)(2N_y+1)$ unknown values represent redundant information.  The current density formulation in Equation \ref{eqn:Ibar} can be reorganized around complex conjugates:
-\begin{align}
-I(d,\theta) &= c_{0,0} \nonumber\\
-& \hspace{-1em} + \sum_{n=1}^{N_y} c_{0,n} \exp(2\pi j \vec{\nu}_{0,n} \cdot \x) + c_{0,n}^* \exp(-2\pi j \vec{\nu}_{0,n} \cdot \x)\nonumber\\
-& \hspace{-1em} + \sum_{m=1}^{N_x}\sum_{n=-N_y}^{N_y} c_{m,n} \exp(2\pi j \vec{\nu}_{m,n} \cdot \x) + c_{m,n}^* \exp(-2\pi j \vec{\nu}_{m,n} \cdot \x).
-\end{align}
-This works because $\vec{\nu}_{-m,-n} = -\vnu$, and so $c_{-m,-n} = c_{m,n}^*$.  Figure \ref{fig:wavenumbers} shows these complimentary wavenumber vectors in the wavenumber plane.  The grouped terms above are shown in green blocks with their omitted complimentary terms in red.  This is probably the simplest way to show why three terms are necessary: if the domain were expressed using only one sum, the $(-m,-n)$ pair would incorrectly repeat terms at the origin and along the $\nu_y$-axis.  
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{figures/wavenumbers}
-\caption{The wave number space with the included terms marked in green and their negative mirrors marked in red.}\label{fig:wavenumbers}
-\end{figure}
-
-The choice to select the $\nu_y$-axis as the line about which to mirror the domain is arbitrary.  It is equally valid to split the domain by the $\nu_x$-axis, or any line passing through the origin.  It is even possible to disperse points quasi-randomly, but there is no clear benefit to such a scheme.
-
-Once grouped into conjugates, these terms yield
-\begin{align}
-I(d,\theta) &= a_{0,0} \nonumber\\
-& \hspace{-1em} + \sum_{n=1}^{N_y} a_{0,n} \cos(2\pi \vec{\nu}_{0,n} \cdot \x) + b_{0,n} \sin(2\pi \vec{\nu}_{0,n} \cdot \x)\nonumber\\
-& \hspace{-1em} + \sum_{m=1}^{N_x}\sum_{n=-N_y}^{N_y} a_{m,n} \cos(2\pi j \vec{\nu}_{m,n} \cdot \x) + b_{m,n} \sin(2\pi j \vec{\nu}_{m,n} \cdot \x).
-\end{align}
-when
-\begin{align}
-a_{m,n} &= \left\{\begin{array}{c|l}
-c_{0,0} & m=n=0\\
-c_{m,n} + c_{m,n}^*& \mathrm{otherwise}
-\end{array}\right.\\
-b_{m,n} &= \left\{\begin{array}{c|l}
-0 & m=n=0\\
--j(c_{m,n} - c_{m,n}^*) & \mathrm{otherwise}
-\end{array}\right.
-\end{align}
-
-{\bf This is not a complete thought yet}
-
-As we show in the previous section, it is equally valid to express the problem in terms of a purely real vector constructed from the coefficients of sines and cosines,
-\begin{align}
-\vec{d} = [I_0,\ a_{0,0},\ a_{1,0},\ \ldots\ b_{0,0},\ b_{1,0},\ \ldots]^T.
-\end{align}
-
-If the coefficients of these vectors were arranged into groups, they are related by a convenient linear transforms,
-\begin{align}
-\vec{d} = \left[\begin{array}{c}
-I_0\\
-a_{0,0}\\
-\vec{a}\\
-\vec{b}
-\end{array}\right] &= 
-\left[\begin{array}{cccc}
-1 & 0 & 0 & 0\\
-0 & 1 & 0 & 0\\
-0 & 0 & \mathbf{I} & \mathbf{I}\\
-0 & 0 & -j\mathbf{I} & -j\mathbf{I}
-\end{array}\right]
-\left[\begin{array}{c}
-I_0\\
-c_{0,0}\\
-\vec{c}\,^+\\
-\vec{c}\,^-
-\end{array}\right] = \mathbf{P} \vec{c}\\
-\vec{c} = \left[\begin{array}{c}
-I_0\\
-c_{0,0}\\
-\vec{c}\,^+\\
-\vec{c}\,^-
-\end{array}\right] &= 
-\left[\begin{array}{cccc}
-1 & 0 & 0 & 0\\
-0 & 1 & 0 & 0\\
-0 & 0 & \frac{1}{2} \mathbf{I} & \frac{j}{2} \mathbf{I}\\
-0 & 0 & \frac{1}{2} \mathbf{I} & -\frac{j}{2} \mathbf{I}
-\end{array}\right]
-\left[\begin{array}{c}
-I_0\\
-a_{0,0}\\
-\vec{a}\\
-\vec{b}
-\end{array}\right] = \mathbf{P}^{-1} \vec{d}
-\end{align}
-
-
 \section{Inversion}
 
 Fourier transforms classically take advantage of the orthogonality of the sinusoidal basis functions, so the original signal only needs to be integrated against each basis function over the entire domain to calculate the magnitude and phase of that component.  Because no single wire position spans the entire domain, this approach is not tenable.  Instead, a vector of coefficients must be solved by inverting a matrix.
 
 The exact scheme used to organize the coefficients into a vector, $\vec{c}$, is not especially important, but it might be something along the lines of 
 \begin{align}
-\vec{c} = [I_0,\ c_{-N_x,-N_y},\ c_{-N_x+1, -N_y},\ \ldots,\ c_{-1,0},\ c_{0,0},\ c_{1,0},\ \ldots,\ c_{N_x,N_y}]^T.
+\vec{c} = [c_{-N_x,-N_y},\ c_{-N_x+1, -N_y},\ \ldots,\ c_{-1,0},\ c_{0,0},\ c_{1,0},\ \ldots,\ c_{N_x,N_y},\ I_0]^T.
+\end{align}
+In this arrangement, it is equally valid to refer to a coefficient by its wavenumber indices, $c_{m,n}$, or by its place in the vector $c_k$.  When the indexing scheme above is used,
+\begin{align}
+k &= (m + N_x) + (n+N_y) (2N_x+1)\\
+m + N_x &= k \mod{(2N_x+1)}\\
+n + N_y &= \mathrm{floor}(k / (2N_x+1))
 \end{align}
 
-When the terms of (\ref{eqn:I}) are embedded into a second vector, $\vec{\Lambda}$, the equation may be rewritten
+When the $\lambda$ values from (\ref{eqn:I}) are embedded into a second vector, $\vec{\Lambda}$, the equation may be rewritten
 \begin{align}
 I(d,\theta) = \vec{\Lambda}(d,\theta) \cdot \vec{c}.
 \end{align}
@@ -226,11 +146,10 @@ e_i = I_i - \vec{\Lambda}(d_i, \theta_i) \cdot \vec{c}.
 \end{align}
 For compactness of notation, it will be convenient to abbreviate $\vec{\Lambda}_i = \vec{\Lambda}(d_i, \theta_i)$ moving forward.  
 
-Though there are others, least squares regression is the most common method for extracting optimal coefficients.  Using this approach, the sum of the squares of the errors, $\sum e_i{^2}$, is differentiated with respect to each of the coefficients.  When error is minimal, that differential is zero.  So,
+Though other methods exist, least squares regression is the most common method for extracting optimal coefficients.  Using this approach, the sum of the squares of the errors, $\sum e_i{^2}$, is differentiated with respect to each of the coefficients.  When error is minimal, that differential is zero.  So,
 \begin{align}
 0 = \frac{\partial}{\partial c_k} \sum e_i {^2} = \sum 2\left(I_i - \vec{\Lambda}_i \cdot \vec{c}\right)\left(- \lambda_{i,k}\right).
 \end{align}
-
 
 Note that $\lambda_{i,k}$ is the element of $\vec{\Lambda}_i$ that corresponded to the coefficient being differentiated.  When this is repeated for each of the coefficients, and the resulting system of equations is written as a matrix problem,
 \begin{align}

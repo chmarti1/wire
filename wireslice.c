@@ -79,10 +79,14 @@ const char help_text[] = "wireslice <infile> <outfile>\n"\
 "    [c_k+1_real double]\n"\
 "    [c_k+1_imag double]\n"\
 "      ...\n"\
+"    [I0_real    double]\n"\
+"    [I0_imag    double]\n"\
 "\n"\
 "  Each real and imaginary coefficient pair corresponds to an m- and n-index\n"\
 "  in the expansion, above.  The indices specify the wavenumber in the x- and\n"\
-"  y-axes.\n"\
+"  y-axes.  The last value, I0, is an offset current that is found present at\n"\
+"  all wire locations. This is not attributed to plasma currents, but to errors\n"\
+"  in the wire current measurement calibration.\n"\
 "\n"\
 "  Because m varies from -Nx to +Nx, n varies from -Ny to +Ny, and the total\n"\
 "  solution includes all possible combinations of these, there are (2Nx+1)(2Ny+1)\n"\

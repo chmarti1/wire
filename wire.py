@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """Spinning Disc Langmuir Probe (SDLP) spatial measurement utilities
 
-
+wire.py <command> <infile> <outfile>
 """
 
 import numpy as np
@@ -442,3 +442,7 @@ the number of grid points in the x- and y-axes.
         ax.set_xlim([0, self.L[0]])
         ax.set_ylim([-self.L[1]/2, self.L[1]/2])
         plt.show()
+
+if __name__ == '__main__':
+    
+    cmd = sys.argv[1]
