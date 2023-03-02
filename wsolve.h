@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <math.h>
+#include <time.h>
 
 // XXX - may need the -fopenmp compiler directive for parallel processing? 
 // XXX - Need "-lpthread -lm -llapacke" in the linking stage
@@ -58,10 +59,13 @@ typedef struct WireSlice {
     Element * B;
     unsigned int Nx, Ny;
     double Lx, Ly;
+    double dshift;
     unsigned int ncoef;
     unsigned int nAP;
     unsigned int ntotal, ndata, nused;
     unsigned char _halt;
+    unsigned char _verbose;
+    time_t _start;
     pthread_mutex_t _matlock;
     pthread_mutex_t _filelock;
     FILE * target;
@@ -81,11 +85,12 @@ typedef struct WireSlice {
  *  ws      :   WireSlice struct
  *  Nx, Ny  :   Number of x- and y-wavenumbers
  *  Lx, Ly  :   Domain length in x- and y-axes
+ *  verbose :   Should the operations print status messages?
  * 
  * Returns 0 on success
  * Returns -1 on memory allocation failure
  */
-int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, double Ly);
+int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, double Ly, unsigned char verbose);
 
 /* WS_DESTRUCT - Free allocated memory and close the file (if open)
  *  ws      :   WireSlice struct
@@ -93,6 +98,14 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
  * Returns 0 - always succeeds
  */
 int ws_destruct(WireSlice_t * ws);
+
+/* WS_VERBOSE - Turn stdout status messages on or off
+ *  ws      :   WireSlice struct
+ *  verbose :   0 or 1
+ * 
+ * Returns 0 always
+ */
+ int ws_verbose(WireSlice_t * ws, unsigned char verbose);
 
 /* WS_READ  -   Read all data into the struct
  *  ws      :   WireSlice struct
@@ -131,14 +144,18 @@ void *read_thread(void * ws);
 // can work with a single call to cosine instead of a power call.
 double complex ejtheta(double theta);
 
-int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, double Ly){
-    unsigned int ii;
+int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, double Ly, unsigned char verbose){
+    int err = 0;
+    
+    // Set the time of the algorithm start
+    ws->_start = time(NULL);
     
     // Dimensional parameters
     ws->Nx = Nx;    // Number of unique x wavenumbers
     ws->Ny = Ny;    // Number of unique y wavenumbers
     ws->Lx = Lx;    // Domain x-length
     ws->Ly = Ly;    // Domain y-length
+    ws->dshift = 0.;
     
     ws->AP = NULL;      // Upper triangular packed solution matrix
     ws->B = NULL;       // Solution vector
@@ -147,6 +164,7 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
     ws->ndata = 0;      // Number of data points found by ws_read()
     ws->nused = 0;      // Number of data points that actually intersect the domain
     ws->_halt = False;  // Used to signal threads to halt prematurely
+    ws->_verbose = verbose;
     // Initialize the mutexes for locking the master matrix and file
     // Default shared state for pthread mutexes is PRIVATE - only one process.
     if(     pthread_mutex_init(&ws->_matlock, NULL) ||
@@ -171,14 +189,21 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
     if(ws->AP == NULL || ws->B == NULL){
         fprintf(stderr, "WS_INIT: Failed during memory allocation, nAP=%d, ncoef=%d\n",ws->nAP, ws->ncoef);
         ws_destruct(ws);
-        return -1;
+        err = -1;
     }
 
-    return 0;
+    if(ws->_verbose)
+        printf("[%6.0f] WS_INIT RC: %d\n", difftime(time(NULL), ws->_start), err);    
+    return err;
 }
 
 
+
+
+
 int ws_destruct(WireSlice_t * ws){
+    int err = 0;
+    
     if(ws->AP){
         free(ws->AP);
         ws->AP = NULL;
@@ -199,7 +224,10 @@ int ws_destruct(WireSlice_t * ws){
         fclose(ws->target);
         ws->target = NULL;
     }
-    return 0;
+    
+    if(ws->_verbose)
+        printf("[%6.0f] WS_DESTRUCT RC: %d\n", difftime(time(NULL), ws->_start), err);
+    return err;
 }
 
 int ws_read(WireSlice_t * ws, char *filename, int nthread){
@@ -217,10 +245,11 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     fseek(ws->target, 0, SEEK_END);
     ws->ntotal = ftell(ws->target) / (4 * sizeof(double));
     fseek(ws->target, 0, SEEK_SET);
-
-    printf("  Using %d threads to read from file: %s\n", nthread, filename);
-    printf("    Nx=%d, Ny=%d\n", ws->Nx, ws->Ny);
-    printf("    Lx=%lf, Ly=%lf\n", ws->Lx, ws->Ly);
+    if(ws->_verbose){
+        printf("  Using %d threads to read from file: %s\n", nthread, filename);
+        printf("    Nx=%d, Ny=%d\n", ws->Nx, ws->Ny);
+        printf("    Lx=%lf, Ly=%lf\n", ws->Lx, ws->Ly);
+    }
     
     // Set the threads to run until halted by one of them
     ws->_halt = False;
@@ -238,12 +267,16 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     for(ii=0;ii<nthread;ii++){
         pthread_join(threads[ii], NULL);
     }
-    // After joining, print a newline to finalize the data useage numbers
-    printf("\n");
+        
     // Close the file
     fclose(ws->target);
     ws->target = NULL;
     ws->_halt=False;
+
+    // Add a newline to the front of the RC status to close out the
+    // threads' status messages
+    if(ws->_verbose)
+        printf("\n[%6.0f] WS_READ RC: %d\n", difftime(time(NULL), ws->_start), err);
     return err;
 }
 
@@ -275,31 +308,41 @@ int ws_solve(WireSlice_t *ws){
                             ws->AP, ipiv, ws->B, ws->ncoef);
     free(ipiv);
     */
+    
+    if(ws->_verbose)
+        printf("[%6.0f] WS_SOLVE RC: %d\n", difftime(time(NULL), ws->_start), err);
     return err;
 }
 
 
 int ws_write(WireSlice_t *ws, char * filename){
     FILE * fd = NULL;
+    int err = 0;
     
-    if(!(fd = fopen(filename,"w"))){
+    fd = fopen(filename,"w");
+    
+    if(fd){
+        // Write header information
+        fwrite(&ws->Nx, sizeof(unsigned int), 1, fd);
+        fwrite(&ws->Ny, sizeof(unsigned int), 1, fd);
+        fwrite(&ws->Lx, sizeof(double), 1, fd);
+        fwrite(&ws->Ly, sizeof(double), 1, fd);
+        fwrite(&ws->dshift, sizeof(double), 1, fd);
+        
+        // Write complex vector solution
+        fwrite(ws->B, sizeof(double complex), ws->ncoef, fd);
+        
+        fclose(fd);
+        fd = NULL;
+    }else{
+        err = -1;
         fprintf(stderr,"WS_WRITE: Failed to open file for writing:\n");
         fprintf(stderr,"  %s", filename);
-        return -1;
     }
     
-    // Write header information
-    fwrite(&ws->Nx, sizeof(unsigned int), 1, fd);
-    fwrite(&ws->Ny, sizeof(unsigned int), 1, fd);
-    fwrite(&ws->Lx, sizeof(double), 1, fd);
-    fwrite(&ws->Ly, sizeof(double), 1, fd);
-    
-    // Write complex vector solution
-    fwrite(ws->B, sizeof(double complex), ws->ncoef, fd);
-    
-    fclose(fd);
-    fd = NULL;
-    return 0;
+    if(ws->_verbose)
+        printf("[%6.0f] WS_WRITE RC: %d\n", difftime(time(NULL), ws->_start), err);
+    return err;
 }
 
 /*
@@ -380,7 +423,7 @@ void* read_thread(void *arg){
         // Iterate over the buffer
         for(k=0;k<4*ndata_this;k+=4){
             r = buffer[k];
-            d = buffer[k+1];
+            d = buffer[k+1] + ws->dshift;
             theta = buffer[k+2];
             iwire = buffer[k+3];
             
@@ -483,11 +526,13 @@ void* read_thread(void *arg){
         ws->nused += nused_this;
         pthread_mutex_unlock(&ws->_matlock);
         // Update status information
-        fprintf(stdout, "\x1B""[1K""\x1B""[1G""Status: %d Total / %d(%4.1f%%) Processed / %d(%4.1f%%) Used", 
+        if(ws->_verbose){
+            fprintf(stdout, "\x1B""[1K""\x1B""[1G""Status: %d Total / %d(%4.1f%%) Processed / %d(%4.1f%%) Used", 
                 ws->ntotal, 
                 ws->ndata, 100*((float) ws->ndata)/ws->ntotal, 
                 ws->nused, 100*((float) ws->nused)/ws->ndata);
-        fflush(stdout);
+            fflush(stdout);
+        }
     }// master while
     // Update the master struct
     // Block access until the matrix lock is released

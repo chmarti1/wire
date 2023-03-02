@@ -9,6 +9,7 @@ from scipy.linalg import solve
 import array,struct
 import time
 import matplotlib.pyplot as plt
+import getopt
 
 
 
@@ -213,10 +214,9 @@ Reads from a file or from an open WireFile instance
             w.join()
             
         print(A)
-                    
-        
-        
-        
+
+
+
     def solve(self):
         """SOLVE - solve the system with the data already included
 """
@@ -252,6 +252,7 @@ the number of grid points in the x- and y-axes.
         y = np.linspace(-self.L[1]/2, self.L[1]/2, Ny)
         x,y = np.meshgrid(x,y)
         return x,y
+
 
 class WireFile:
     def __init__(self, filename):
@@ -307,6 +308,16 @@ class WireFile:
         return False
 
     def readline(self):
+        """Read and return a four-element tuple
+    (R, D, theta, I) = wf.readline()
+
+R is the wire radius
+D is the distance from the y-axis to the center of disc rotation
+theta is the wire angle (in radians) relative to the x-axis
+I is the measured wire current
+
+Returns an empty tuple if end-of-file
+"""
         if self.isread:
             bb = self.fd.read(self.linebytes)
             if len(bb) < self.linebytes:
@@ -330,6 +341,7 @@ class SliceData:
     def __init__(self, filename):
         self.N = None
         self.L = None
+        self.dshift = None
         self.C = None
         self.C_mn = None
         self.I0 = None
@@ -343,6 +355,8 @@ class SliceData:
             self.N = np.array(struct.unpack('II',raw), dtype=int)
             raw = ff.read(struct.calcsize('dd'))
             self.L = np.array(struct.unpack('dd', raw), dtype=float)
+            raw = ff.read(struct.calcsize('d'))
+            self.dshift = struct.unpack('d', raw)[0]
             self.ncoef = np.prod(2*self.N+1)
             raw = ff.read(2 * (self.ncoef+1) * struct.calcsize('d'))
             raw = array.array('d', raw)
@@ -353,7 +367,7 @@ class SliceData:
             self.C = np.array(raw[0:nn:2]) + 1j*np.array(raw[1:nn:2])
             self.C_mn = np.reshape(self.C, 2*self.N+1)
             self.I0 = raw[nn]
-    
+        
         # Initialize the nu arrays
         self.nu_mn = np.meshgrid(
                 np.arange(-self.N[0], self.N[0]+1)/self.L[0],
@@ -444,5 +458,25 @@ the number of grid points in the x- and y-axes.
         plt.show()
 
 if __name__ == '__main__':
+    opts,args = getopt.getopt(sys.argv[1:], 'c:')
     
-    cmd = sys.argv[1]
+    if args[0].lower() == 'stat':
+        infile = args[1]
+        R = []
+        D = []
+        T = []
+        I = []
+        with WireFile(infile).open('r') as wf:
+            for r,d,theta,i in wf:
+                R.append(r)
+                D.append(d)
+                T.append(theta)
+                I.append(i)
+                
+        
+            
+    elif args[0].lower() == 'view':
+        infile = args[1]
+        
+    else:
+        raise Exception('Unrecognized command: ' + args[0])

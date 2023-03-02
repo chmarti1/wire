@@ -1,5 +1,5 @@
 pre:
 	apt install libblas-dev liblapacke-dev
 
-wireslice: wireslice.c wireslice.h
-	gcc wireslice.c -lm -llapacke -lpthread -o wireslice
+wsolve: wsolve.c wsolve.h
+	gcc wsolve.c -lm -llapacke -lpthread -o wsolve
