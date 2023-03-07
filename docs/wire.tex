@@ -9,6 +9,7 @@
 \def\eth{\hat{e}_\theta}
 \def\vnu{\vec{\nu}_{m,n}}
 \def\nuth{\nu_{m,n|\theta}}
+\def\pmn{\phi_{m,n}}
 \def\ui{\hat{\imath}}
 \def\uj{\hat{\jmath}}
 \def\real{\mathrm{Re}}
@@ -22,21 +23,26 @@
 
 \maketitle
 
+\section{Introduction}
+
+The Spinning Disc Langmuir Probe (SDLP) was first employed in the late twentieth century as a method to measure ion densities in dense plasmas -- specifically in flames.  The Langmuir probe, named for Irving Langmuir, is little more than a metal surface inserted into a plasma.  When a bias voltage is applied, the resulting electrical currents can be used to deduce the density of ions around the probe.  In flames, heat transfer to the wire is sufficiently intense to destroy it.  So, the probes need to be actively cooled as in the famous studies by Cacote\cite{}, or the residence time in the flame must be very short as in the studies by Clements, Smy, Maclatchey, Dawe and others \cite{}.  
+
+In the latter studies, the wire was mounted on a disc, which spun at a speed sufficient to limit the wire's residence in the flame.  Compared with electrical phenomena, the thermal response of even the finest wire is slow, making it possible to find speeds that are slow relative to the measurement, but fast enough to allow the probe to survive repeated tests.
+
 \section{Derivation}
 
-The probe wire has radius, $R$, and rotates about a center on the $x$-axis a distance, $d$, from the origin.  At each sample, the probe will have an angle, $\theta$, will enter the domain at radius, $R_0$, and terminates at a radius, $R_1$.  The current measured by the probe, $I$, is an integral of the current per unit wire length, $\I$,
+The probe wire tip protrudes a radius from the disc center, $R$, and rotates about a center at coordinates $\vec{x}_0 = x_0\ui + y_0\uj$.  At each sample, the probe will have an angle, $\theta$, will enter the domain at radius, $R_0$, and terminates at a radius, $R_1$.  The current measured by the probe, $I$, is an integral of the current per unit wire length, $\I$,
 \begin{align}
 I = \int_{R_0}^{R_1} \I \d r.
 \end{align}
-These dimensions are shown in Figure \ref{fig:coords}.  When the tip of the wire lies inside the domain, $R_1 = R$.
-
+These dimensions are shown in Figure \ref{fig:coords}.  
 \begin{figure}
 \centering
 \includegraphics[width=.9\linewidth]{figures/coords}
 \caption{Dimensions and coordinate system for the domain}\label{fig:coords}
 \end{figure}
 
-The wire current density is a function of the bulk velocity and the ion density, so it is expressed as a function of position in the fluid, $\I(\x)$.  Once $\I(\x)$ is known everywhere in the fluid, it is be possible to calculate the ion density distribution.  
+The wire current density is a function of the bulk velocity and the ion density, so it is expressed as a function of position in the fluid, $\I(\x)$, and may be imagined to be a local property of the fluid. 
 
 Previously, wire current density was calculated as a grid of discrete nodes, and its integral along the wire length was calculated by interpolating along its path.  This approach is intuitive and flexible, and the inversion problem results in a sparse symmetrical matrix, which can speed inversion times.  On the other hand, the path tracing algorithm required iteration along the wire's length, which is slow in high-level languages, the discretization scheme produces artifacts in the images, and there were also unexplained striping artifacts in the wake of strong signals.
 
@@ -46,12 +52,12 @@ In the present work, we adopt a spatial Fourier series, which provides a far mor
 
 The Fourier series for $\I$ is constructed in $x,y$ coordinates
 \begin{align}
-\I(x,y) &= \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \exp\left(2\pi j \vnu \cdot \x \right),\label{eqn:Ibar}
+\I(x,y) &= \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \exp\left(j \vnu \cdot \x \right),\label{eqn:Ibar}
 \end{align}
 where $\vnu$ is the wavenumber vector,
 \begin{align}
 \vnu &= \nu_x \ui + \nu_y \ui\nonumber\\
- &=\frac{m}{L_x} \ui + \frac{n}{L_y} \uj,
+ &=2\pi \left( \frac{m}{L_x} \ui + \frac{n}{L_y} \uj \right),
 \end{align}
 and $\x$ is the position in the domain,
 \begin{align}
@@ -71,45 +77,38 @@ The integral of $\I$ requires an $x,y$ parametric formulation of the wire's path
 
 If $r$ is the distance along the wire from the disc center at $x=-d$, the corresponding location in $(x,y)$ is
 \begin{align}
-\x &= r \eth - d \ui
+\x &= r \eth + \x_0
 \end{align}
-The dot product of $\x$ and $\vnu$ yields two terms along the wire's path; one with the wavenumber along the wire (in the $\eth$ direction) and one with the wavenumber in the horizontal axis (in the $\ui$ direction),
+The dot product of $\x$ and $\vnu$ yields two terms along the wire's path; one with the wavenumber along the wire (in the $\eth$ direction) and one constant scalar, $\vnu \cdot \x_0$,
 \begin{align}
-\vnu \cdot \x &= r (\vnu \cdot \hat{e}_\theta) - d (\vnu \cdot \ui)\nonumber\\
- &= \nu_{m,n|\theta} r - \nu_{m,n|x} d\\
-\nu_{m,n|\theta} &= \frac{m}{L_x} \cos(\theta) + \frac{n}{L_y} \sin(\theta)\\
-\nu_{m,n|x} &= \frac{m}{L_x}.
+\vnu \cdot \x &= r (\vnu \cdot \hat{e}_\theta) + (\vnu \cdot \x_0)\nonumber\\
+ &= \nu_{m,n|\theta} r + \pmn\\
+\nuth &= 2\pi \left( \frac{m}{L_x} \cos(\theta) + \frac{n}{L_y} \sin(\theta) \right)\\
+\pmn &= 2\pi \left( \frac{m}{L_x} x_0 + \frac{n}{L_y} y_0 \right)
 \end{align}
-In the domain, the term still has its two-dimensional wave properties, but if we were to travel only along a wire at angle, $\theta$, the $(m,n)$ term of the expansion would appear to have this wave number.  Note that it can be zero, even when both $x-$ and $y-$components of $\vnu$ are non-zero; when $\vnu$ is normal to $\eth$.
+In the domain, the term still has its two-dimensional wave properties, but if we were to travel only along a wire at angle, $\theta$, the $(m,n)$ term of the expansion would appear to have wave number $\nuth$.  Note that it can be zero, even when both $x-$ and $y-$components of $\vnu$ are non-zero; when $\vnu$ is normal to $\eth$.
 
 Once substituted into the Fourier expansion, a single term becomes
 \begin{align*}
-c_{m,n} \exp\left(2\pi j \vnu \cdot \x \right)\hspace{-8em}&\\
-&= c_{m,n} \exp\Bigl[2\pi j \left(\nuth\,r - \nu_{m,n|x} d\right)\Bigr].
+c_{m,n} \exp\left(j \vnu \cdot \x \right)\hspace{-8em}&\\
+&= c_{m,n} \exp\Bigl[j \left(\nuth\,r + \pmn \right)\Bigr].
 \end{align*}
-Here, the disc center location, $d$, appears intuitively as a phase shift in the horizontal direction only.  Recall that $\nu_{m,n|x}$ is simply $m / L_x$.
-
-In order to integrate along this function, we need to establish the radius at which the wire crosses into the domain, $R_0$, the radius at which the wire either terminates or leaves the domain, $R_1$:
-\begin{align}
-R_0 &= \frac{d}{\cos(\theta)}\\
-R_1 &= \min\left(\ R,\ \frac{d + L_x}{\cos(\theta)},\ \left|\frac{L_y}{2\sin(\theta)}\right|\ \right)
-\end{align}
-The integral is a sum of surface currents along the wire's length at moment in time, so the disc position parameters, $d$ and $\theta$, are constant.
+Here, the disc center location, $\x_0$, appears intuitively as a phase shift.
 
 It is convenient to define a new parameter, $\lambda_{m,n}$, which represents the value of the exponential integrated over $r$:
 \begin{align}
-\lambda_{m,n}(d,\theta) &= \int_{R_0}^{R_1} \exp\Bigl[2\pi j \left(\nuth\,r - \nu_{m,n|x}\,d\right)\Bigr] \d r \nonumber\\
+\lambda_{m,n}(d,\theta) &= \int_{R_0}^{R_1} \exp\Bigl[ j \left(\nuth\,r + \pmn \right)\Bigr] \d r \nonumber\\
  &= \left\{\begin{array}{c@{\ :\ }l}
- \displaystyle (R_1 - R_0) \exp\Bigl[-2\pi j \nu_{m,n|x}\,d\Bigr] & \nuth = 0  \vspace{1.0em} \\
-\displaystyle \frac{1}{2\pi j \nuth}\exp\Bigl[2\pi j \left(\nuth\,r - \nu_{m,n|x}\,d\right)\Bigr]^{R_1}_{R_0} & \mathrm{otherwise}
+ \displaystyle (R_1 - R_0) \exp\Bigl[j \pmn \Bigr] & \nuth = 0  \vspace{1.0em} \\
+\displaystyle \frac{1}{j \nuth}\exp\Bigl[j \left(\nuth\,r + \pmn \right)\Bigr]^{R_1}_{R_0} & \mathrm{otherwise}
 \end{array}
 \right.
 \end{align}
-It is worth repeating that the wavenumber, $\nuth$, can be zero when $m=n=0$ or when $\eth$ is exactly normal to the wavenumber vector.
+It is worth repeating that the wavenumber, $\nuth$, can be zero when $m=n=0$ or when $\eth$ is exactly normal to the wavenumber vector.  The latter is numerically improbable, but not impossible, so  well designed algorithm should test for its possibility.
 
 This yields an expression for the total wire current
 \begin{align}
-I(d,\theta) &= \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \lambda_{m,n}(d,\theta)
+I(d,\theta) &= \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \lambda_{m,n}(d,\theta).
 \end{align}
 
 \subsection{Offset current}
@@ -119,7 +118,33 @@ Every experiment begins by zeroing the current signal to the nearest practical p
 I(d,\theta) &= I_0 + \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \lambda_{m,n}(d,\theta)\label{eqn:I}.
 \end{align}
 
-\section{Inversion}
+\subsection{Radii of intersection}
+
+It is possible (and potentially even desirable) to consider disc locations on all sides of the domain, so the method by which an algorithm can efficiently determine the bounds of integration, $R_0$, and $R_1$, could take a number of different forms.  The path of the wire, we have already established, is
+\begin{align}
+\x = \x_0 + r \eth \hspace{1em} \forall \hspace{1em} r \in [0,R].
+\end{align}
+The domain may be thought of as the region bounded by intersecting vertical lines passing through $x=\pm L_x/2$ and horizontal lines passing through $y=\pm L_y/2$.  It is simple to calculate a radius at which a line projected along the wire would intersect each of these, but the numbers will be infinite when the wire is precisely parallel or vertical.  This is addressed by, instead, calculating the inverse, $\rho = 1/r$, of intersection radius for each of the four domain walls,
+\begin{subequations}
+\begin{align}
+\rho_{AB} &= \frac{\cos(\theta)}{-L_x/2 - x_0}\\
+\rho_{BC} &= \frac{\sin(\theta)}{L_y/2 - y_0}\\
+\rho_{CD} &= \frac{\cos(\theta)}{L_x/2 - x_0}\\
+\rho_{DA} &= \frac{\sin(\theta)}{-L_y/2 - y_0}.
+\end{align}
+\end{subequations}
+Each of these intersections occurs at a distance from the $x-$ or $y-$axis,
+\begin{align}
+d_{AB} &= y_0 + \sin(\theta)/\rho_{AB}\\
+d_{BC} &= x_0 + \cos(\theta)/\rho_{BC}\\
+d_{AB} &= y_0 + \sin(\theta)/\rho_{AB}\\
+d_{AB} &= x_0 + \sin(\theta)/\rho_{AB}.
+\end{align}
+If $\rho$ is less than $1/R$, or if $d$ is outside of the line segment length, then the wire does not intersect the segment.
+
+
+
+\section{Solution}
 
 Fourier transforms classically take advantage of the orthogonality of the sinusoidal basis functions, so the original signal only needs to be integrated against each basis function over the entire domain to calculate the magnitude and phase of that component.  Because no single wire position spans the entire domain, this approach is not tenable.  Instead, a vector of coefficients must be solved by inverting a matrix.
 

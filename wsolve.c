@@ -30,14 +30,14 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 "\n"\
 "<infile>\n"\
 "  Raw data are read in double-precision floating point quartets from a\n"\
-"  data file. A quartet includes the wire radius, R, the disc distance\n"\
-"  from the edge of the measurement domain, D, the disc angle in radians,\n"\
-"  THETA, and the measured wire current in that configuration, I. The \n"\
-"  R,D,THETA,I quartets repeat in the file with no header, footer, and\n"\
-"  with no separation,\n"\
+"  data file. A quartet includes the wire radius, R, the X and Y location\n"\
+"  of the disc center in the domain, the disc angle in radians, THETA,\n"\
+"  and the measured wire current in that configuration, I. The R,X,Y,THETA,I"\
+"  groups repeat in the file with no header, footer, and with no separation,\n"\
 "      ...\n"\
 "    [R     double]\n"\
-"    [D     double]\n"\
+"    [X     double]\n"\
+"    [Y     double]\n"\
 "    [THETA double]\n"\
 "    [I     double]\n"\
 "      ...\n"\
@@ -90,7 +90,8 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 "    Ny <int>\n"\
 "    Lx <float>\n"\
 "    Ly <float>\n"\
-"    dshift <float>\n"\
+"    xshift <float>\n"\
+"    yshift <float>\n"\
 "\n"\
 "The \"nthread\" integer specifies the number of threads that should be\n"\
 "spawned to perform the computation.  The Nx and Ny integers specify the\n"\
@@ -123,7 +124,7 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 int main(int argc, char *argv[]){
     unsigned int Nx,Ny,nthread;
     double Lx,Ly;
-    double dshift;
+    double xshift, yshift;
     char verbose_f;
     char *configfile, *infile, *outfile;
     char ch;
@@ -181,15 +182,16 @@ int main(int argc, char *argv[]){
     Ny = 0;
     Lx = 0;
     Ly = 0;
-    dshift = 0.;
+    xshift = 0;
+    yshift = 0;
     nthread = 1;
     // Read the file
-    err = fscanf(fd, "nthread %d Nx %d Ny %d Lx %lf Ly %lf dshift %lf",
-            &nthread, &Nx, &Ny, &Lx, &Ly, &dshift);
+    err = fscanf(fd, "nthread %d Nx %d Ny %d Lx %lf Ly %lf xshift %lf yshift %lf",
+            &nthread, &Nx, &Ny, &Lx, &Ly, &xshift, &yshift);
     fclose(fd);
     fd = NULL;
     // Check that all the parameters were found
-    if(err != 6){
+    if(err != 7){
         fprintf(stderr, "Configuration syntax error in %s. Call \"wsolve -h\" for help.\n", configfile);
         return -1;
     }
@@ -211,6 +213,7 @@ int main(int argc, char *argv[]){
     
         
     err = ws_init(&ws, Nx, Ny, Lx, Ly, verbose_f);
+    err = err || ws_shift(&ws, xshift, yshift);
     err = err || ws_read(&ws, infile, nthread);
     /*
      * This code prints the A matrix and B vectors for debugging

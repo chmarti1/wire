@@ -33,14 +33,14 @@ I = gs(r,d,theta)
         self.sigma = np.broadcast_to(sigma, (2,))
         self.A = A
         
-    def __call__(self, r, d, theta):
+    def __call__(self, r, x, y, theta):
         
         r0 = d/np.cos(theta)
         dr = self.sigma/10
         rr = np.arange(r0,r+0.5*dr,dr)
         
-        x = rr*np.cos(theta) - d
-        y = rr*np.sin(theta)
+        x = rr*np.cos(theta) + x
+        y = rr*np.sin(theta) + y
         ii = self.A * np.exp(-(x*x + y*y)/(2*self.sigma*self.sigma))
         return np.trapz(ii,dx=dr)
 
@@ -68,13 +68,14 @@ I = cs(r, d, theta)
         self.r = r
         self.A = A
         
-    def __call__(self, r, d, theta):
-        # modified horizontal distance to center
-        x = d + self.x
+    def __call__(self, r, x, y, theta):
+        # xx,yy forms a vector to the circle center
+        xx = self.x - x
+        yy = self.y - y
         # Angle to center of the circle
-        theta_center = np.arctan(self.y/x)
+        theta_center = np.arctan2(yy,xx)
         # Distance to the circle's center
-        L = np.sqrt(x*x + self.y*self.y)
+        L = np.sqrt(xx*xx + yy*yy)
         # Angle range to intersect the circle
         theta_crit = np.arcsin(self.r / L)
         # Adjust the angle relative to the centerline
@@ -82,9 +83,11 @@ I = cs(r, d, theta)
         if -theta_crit < theta_adj < theta_crit:
             cth = np.cos(theta_adj)
             sth = np.sin(theta_adj)
-            # Calculate the minimum radius
+            # Calculate the minimum radius along this path
             r0 = L * (cth - np.sqrt(cth*cth - 1 + self.r*self.r/L/L))
+            # Calculate the maximum distance inside the circle along this path
             dr = 2*np.sqrt(self.r*self.r - L*L*sth*sth)
+            # Select one
             return self.A*min(max(0., r-r0), dr)
         else:
             return 0.
@@ -100,10 +103,10 @@ ProtoSignal elements.
     def __init__(self):
         self.members = []
         
-    def __call__(self, r, d, theta):
+    def __call__(self, r, x, y, theta):
         I = 0.
         for m in self:
-            I += m(r,d,theta)
+            I += m(r,x,y,theta)
         return I
         
     def __iter__(self):
@@ -131,12 +134,12 @@ Remove a member from the member signal list and return it
 """
         return self.members.pop(index)
 
-    def generate(self, filename, r, d, theta, show=False):
-        """Generate a wirefile dataset
+    def generate(self, filename, r, x, y, theta, show=False):
+        """Generate a WireData dataset
     ts.generate(filename, d, theta)
     
 ** filename **
-The filename of the WireFile to generate
+The filename of the WireData to generate
 
 ** r **
 Scalar or array-like wire radii
@@ -151,15 +154,17 @@ Array-like values of d and theta to use when generating the file.
             fig,ax = plt.subplots(1,Nr,squeeze=False)
             II = np.empty_like(theta, dtype=float)
 
-        wf = wire.WireFile(filename)
+        x,y = np.broadcast_arrays(x,y)
+
+        wf = wire.WireData(filename)
         with wf.open('w'):
-            for dd in d:
+            for xx,yy in zip(x,y):
                 for rindex, rr in enumerate(r):
                     for index,th in enumerate(theta):
-                        I = self(rr,dd,th)
+                        I = self(rr,xx,yy,th)
                         if show:
                             II[index] = I
-                        wf.writeline(rr, dd, th, I)
+                        wf.writeline(rr, xx, yy, th, I)
                     if show:
                         ax[rindex,0].plot(theta,II,'k')
         if show:
@@ -168,7 +173,7 @@ Array-like values of d and theta to use when generating the file.
 
 if __name__ == '__main__':
     ts = TestSection()
-    ts.addmember(CircleSignal(0.4,0,0.35,1.))
-    ts.addmember(CircleSignal(0.4,0,0.25,-1.))
-    ts.generate('test.wf', 4, np.linspace(4,3,101), np.linspace(-.18,.18,101),show=True)
+    ts.addmember(CircleSignal(0,  0, 0.35,  1.))
+    #ts.addmember(CircleSignal(0, -0.03, 0.25, -1.))
+    ts.generate('test.wf', 4, -np.linspace(4.4,3.4101), 0.5, np.linspace(-.3,.0,101),show=True)
 

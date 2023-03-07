@@ -16,6 +16,9 @@
 #define Element double complex  // Coefficient and matrix data type
 #define BUFFER_SIZE 128        // Lines to buffer from the source data
 #define MAX_THREADS 12          // Maximum worker threads to spawn in ws_read()
+#define TWOPI       2 * M_PI    // Duh
+#define NREAD       5           // How many floating point numbers to read?
+
 
 /* The WireSlice struct
  *  Wire slice structs contain the complex-valued matrix problem for
@@ -59,7 +62,7 @@ typedef struct WireSlice {
     Element * B;
     unsigned int Nx, Ny;
     double Lx, Ly;
-    double dshift;
+    double xshift, yshift;
     unsigned int ncoef;
     unsigned int nAP;
     unsigned int ntotal, ndata, nused;
@@ -99,14 +102,6 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
  */
 int ws_destruct(WireSlice_t * ws);
 
-/* WS_VERBOSE - Turn stdout status messages on or off
- *  ws      :   WireSlice struct
- *  verbose :   0 or 1
- * 
- * Returns 0 always
- */
- int ws_verbose(WireSlice_t * ws, unsigned char verbose);
-
 /* WS_READ  -   Read all data into the struct
  *  ws      :   WireSlice struct
  *  filename:   Path to the data file to open
@@ -135,6 +130,14 @@ int ws_solve(WireSlice_t * ws);
  */
 int ws_write(WireSlice_t * ws, char * filename);
 
+/* WS_SHIFT -   Set the x- and y- shift values to apply to all data
+ *  ws      :   WireSlice struct
+ *  x,y     :   x- and y-shift values
+ * 
+ * Returns 0
+ */
+int ws_shift(WireSlice_t * ws, double x, double y);
+
 // The WS_READ() function uses the READ_THREAD as a worker function to
 // spawn parallel threads for parsing data files.
 void *read_thread(void * ws);
@@ -143,6 +146,7 @@ void *read_thread(void * ws);
 // evaluating exp(j*theta).  Because there is no real component, it
 // can work with a single call to cosine instead of a power call.
 double complex ejtheta(double theta);
+
 
 int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, double Ly, unsigned char verbose){
     int err = 0;
@@ -155,7 +159,8 @@ int ws_init(WireSlice_t * ws, unsigned int Nx, unsigned int Ny, double Lx, doubl
     ws->Ny = Ny;    // Number of unique y wavenumbers
     ws->Lx = Lx;    // Domain x-length
     ws->Ly = Ly;    // Domain y-length
-    ws->dshift = 0.;
+    ws->xshift = 0.;
+    ws->yshift = 0.;
     
     ws->AP = NULL;      // Upper triangular packed solution matrix
     ws->B = NULL;       // Solution vector
@@ -235,6 +240,7 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     int ii, err, thrd_err;
     // Bracket the number of threads between 1 and MAX_THREADS
     nthread = nthread <= 1 ? 1 : (nthread > MAX_THREADS ? MAX_THREADS : nthread);
+    printf("nthread: %d\n", nthread);
     // Is a file already open!?
     if(ws->target)
         return -1;
@@ -267,7 +273,6 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     for(ii=0;ii<nthread;ii++){
         pthread_join(threads[ii], NULL);
     }
-        
     // Close the file
     fclose(ws->target);
     ws->target = NULL;
@@ -327,7 +332,6 @@ int ws_write(WireSlice_t *ws, char * filename){
         fwrite(&ws->Ny, sizeof(unsigned int), 1, fd);
         fwrite(&ws->Lx, sizeof(double), 1, fd);
         fwrite(&ws->Ly, sizeof(double), 1, fd);
-        fwrite(&ws->dshift, sizeof(double), 1, fd);
         
         // Write complex vector solution
         fwrite(ws->B, sizeof(double complex), ws->ncoef, fd);
@@ -345,12 +349,22 @@ int ws_write(WireSlice_t *ws, char * filename){
     return err;
 }
 
+
+int ws_shift(WireSlice_t * ws, double x, double y){
+    ws->xshift = x;
+    ws->yshift = y;
+    if(ws->_verbose)
+        printf("[%6.0f] WS_SHIFT RC: 0   (%lf, %lf)\n", difftime(time(NULL), ws->_start), x, y);
+    return 0;
+}
+
 /*
  *  HELPER FUNCTION DEFINITIONS
  */
+
 void* read_thread(void *arg){
     WireSlice_t *ws;
-    double buffer[BUFFER_SIZE * 4];
+    double buffer[BUFFER_SIZE * NREAD];
     // Intermediate matricies and vectors
     double complex  *AP,    // Upper-triangular packed Hermitian matrix
                     *B,     // Problem vector
@@ -360,18 +374,25 @@ void* read_thread(void *arg){
                     zt2;    //
     // Floating point parameters for the wire calculation
     double          r,      // Wire radius (data file)
-                    d,      // Horizontal disc location (data file)
+                    r0,     // Radius where the wire enters the domain
+                    r1,     // End radius
+                    x0,     // Horizontal disc location (data file)
+                    y0,     // Vertical disc location (data file)
                     theta,  // Wire angle (data file)
                     iwire,  // Total integrated wire current (data file)
                     nu_th,  // Wavenumber along the wire
-                    nu_x,   // Horizontal wavenumber
-                    r0,     // Radius where the wire enters the domain
-                    r1,     // End radius
+                    phi,  // Phase induced by the disc center location
+                    nu_x,   // X- and Y- components of the wavenumber
+                    nu_y,   //   vector.
                     s_th,   // sine theta
                     c_th,   // cosine theta
-                    h0,     // height for domain intersection test
                     ft1,    // General purpose intermdediate double
                     ft2;    //
+    // Registers for calculating intersection
+    double          rho0, 
+                    rho1,
+                    rho,
+                    d;
     // Counters
     unsigned int    ndata_this,  // Number of lines read in the current execution
                     nused_this,  // Number of points used in the current exection
@@ -412,7 +433,7 @@ void* read_thread(void *arg){
     while(!ws->_halt){
         // Block execution until the file lock is released
         pthread_mutex_lock(&ws->_filelock);
-        ndata_this = fread(buffer, sizeof(double), BUFFER_SIZE*4, ws->target)/4;
+        ndata_this = fread(buffer, sizeof(double), BUFFER_SIZE*5, ws->target)/NREAD;
         pthread_mutex_unlock(&ws->_filelock);
         // If this was the last of the data, signal for the threads to halt
         if(ndata_this < BUFFER_SIZE)
@@ -421,44 +442,129 @@ void* read_thread(void *arg){
         ndata += ndata_this;
         nused_this = 0;
         // Iterate over the buffer
-        for(k=0;k<4*ndata_this;k+=4){
+        for(k=0;k<NREAD*ndata_this;k+=NREAD){
+            // Extract the five values from each entry
             r = buffer[k];
-            d = buffer[k+1] + ws->dshift;
-            theta = buffer[k+2];
-            iwire = buffer[k+3];
+            x0 = buffer[k+1] + ws->xshift;
+            y0 = buffer[k+2] + ws->yshift;
+            theta = buffer[k+3];
+            iwire = buffer[k+4];
             
-            // calculate sine and cosine
+            // calculate sine and cosine of the wire trajectory
             zt1 = ejtheta(theta);
             c_th = creal(zt1);
             s_th = cimag(zt1);
             
-            // Calculate the relevant radii
-            // r0 is the projection along the wire to the first domain edge
-            r0 = d / c_th;
-            // Calculate the height at which the wire intersects the domain
-            // This isn't actually important - it's just the easiest way
-            // to verify that the wire passes through the domain.
-            h0 = fabs(r0 * s_th);
-            // r1 is the smallest of
-            //  (1) the wire radius
-            //  (2) the wire projection to the far edge of the domain
-            //  (3) the wire projection to either of the horizontal 
-            //      domain boundaries (top or bottom). 
-            // When the wire is horizontal, (3) is infinite, so we first
-            // calculate 1/r1 and accept the largest value.
-            // When the wire terminates inside the domain r1 = r
-            // When the wire doesn't reach the domain, r1 < r0
-            r1 = 1/r;
-            ft1 = c_th / (d+ws->Lx);    // Candidate: r1=(d+Lx)/cos(theta)
-            r1 = r1 > ft1 ? r1 : ft1;
-            ft1 = fabs(2*s_th/ws->Ly);  // Candidate: r1=Ly/2sin(theta)
-            r1 = r1 > ft1 ? r1 : ft1;
-            r1 = 1/r1;
-            // Only proceed if the wire intersects the domain
-            // There are two ways for the wire to miss:
-            //  (1) the angle is too wide
-            //  (2) the disc is too far away and the wire doesn't reach
-            if(h0 < ws->Ly/2 && r1 > r0){
+            /* Calculate wire intersection with the bounding edges. We
+             * will name the edges AB, BC, CD, and DA
+             *         ^
+             *         |            +  (x0,y0)
+             *   B ,---|---, C
+             *     |   |   |
+             * --------+------------>
+             *     |   |   |
+             *   A '---|---' D
+             * 
+             * A line projected from x0,y0 with radius r and angle theta
+             * may pass through 0, 1, or 2 of the domain edges.  This 
+             * algorithm detects the maximum and minimum radii of the
+             * wire's path through the domain (if any).
+             * 
+             * The algorithm works in rho=1/r instead of r to avoid 
+             * singularities when the line is parallel with an edge.
+             * There is a pair of sorted values, rho0 and rho1, that
+             * indicate the maximum and minimum values of rho at an 
+             * edge intersection.  Initially, rho0 == rho1 == 1/r
+             * so that if the intersection radius is beyond the wire tip,
+             * rho < rho0, and the possible intersection will be ignored.
+             * This has the double benefit of ignoring singular cases
+             * and edges outside of the wire's reach in a single 
+             * comparison.
+             * 
+             * Then, the algorithm calculates the intersection location, 
+             * d, along the edge from the nearest axis.  If it lies 
+             * within the length of the edge segment, the wire 
+             * intersects the edge, and the value of rho is inserted
+             * into the rho0, rho1 pair.
+             * 
+             * After all four edges have been tested for intersection,
+             * the rho0 and rho1 pair are tested for equality.  If
+             * rho1 > rho0, there was an intersection.  If only one edge
+             * was intersected, rho0 will still be 1/r (the wire tip).
+             * If two intersections were found, then rho0 and rho1 will
+             * be appropriate radii for the entrance and exit of the 
+             * wire.
+             */
+             
+            rho0 = 1/r;
+            rho1 = rho0;
+            
+            // Start with AB
+            rho = -c_th / (x0 + ws->Lx/2);
+            // Only bother if rho is greater than the smallest candidate
+            if(rho > rho0){
+                d = s_th / rho + y0;
+                if(fabs(d) <= ws->Ly/2){
+                    if(rho>rho1){
+                        rho0 = rho1;
+                        rho1 = rho;
+                    }else{
+                        rho0 = rho;
+                    }
+                }
+            }
+            
+            // next, check CD
+            rho = c_th / (-x0 + ws->Lx/2);
+            // Only bother if rho is greater than the smallest candidate
+            if(rho > rho0){
+                d = s_th / rho + y0;
+                if(fabs(d) <= ws->Ly/2){
+                    if(rho>rho1){
+                        rho0 = rho1;
+                        rho1 = rho;
+                    }else{
+                        rho0 = rho;
+                    }
+                }
+            }
+            
+            // next, check BC
+            rho = s_th / (-y0 + ws->Ly/2);
+            // Only bother if rho is greater than the smallest candidate
+            if(rho > rho0){
+                d = c_th / rho + x0;
+                if(fabs(d) < ws->Lx/2){
+                    if(rho>rho1){
+                        rho0 = rho1;
+                        rho1 = rho;
+                    }else{
+                        rho0 = rho;
+                    }
+                }
+            }
+            
+            // next, check DA
+            rho = -s_th / (y0 + ws->Ly/2);
+            // Only bother if the candidate is greater than the smallest candidate
+            if(rho > rho0){
+                d = c_th / rho + x0;
+                if(fabs(d) < ws->Lx/2){
+                    if(rho>rho1){
+                        rho0 = rho1;
+                        rho1 = rho;
+                    }else{
+                        rho0 = rho;
+                    }
+                }
+            }
+            
+            // If the wire intersects the domain
+            if(rho1>rho0){
+                // Convert rhos back into radii
+                r1 = 1./rho0;
+                r0 = 1./rho1;
+                
                 nused_this ++;
                 // Calculate the Lambda vector
                 // The reverse of Lambda is its complex conjugate, so
@@ -466,35 +572,42 @@ void* read_thread(void *arg){
                 // We'll iterate over ALL n-values, but only half of the
                 // m-values.
                 for(n=-ws->Ny; n <= (int)ws->Ny; n++){
-                    // Deal with m=0 specially
+                    // Calculate the vertical component of wavenumber
+                    nu_y = TWOPI * n/ws->Ly;
+                    //
+                    // Deal with m=0 specially, outside of the loop
+                    // below.
                     lam_i = n*icoef + izero;
-                    //nu_x = 0;     No need to calculate nu_x
-                    nu_th = n*s_th/ws->Ly;
-                    // Case out zero wavenumber
+                    // calculate the phase and wavenumber along the wire
+                    // When m==0, only the vertical component matters
+                    phi = nu_y * y0;
+                    nu_th = nu_y * s_th;
+                    // Catch the special case of a zero wavenumber
                     if(n == 0 || nu_th ==0){
-                        LAM[lam_i] = (r1 - r0);
-                    }else{
-                        ft1 = 2 * M_PI * nu_th;
-                        LAM[lam_i] = (ejtheta(ft1*r1) - ejtheta(ft1*r0)) / (ft1 * I);
+                        LAM[lam_i] = (r1 - r0) * ejtheta(phi);
+                    }else{ 
+                        LAM[lam_i] = (ejtheta(nu_th*r1 + phi) - ejtheta(nu_th*r0 + phi)) / (nu_th * I);
                     }
-                    // Deal with m!=0 in complex conjugate pairs
+                    //
+                    // Now, deal with m!=0 in complex conjugate pairs
+                    // in a loop.  We'll index over ONLY the positive
+                    // values of m, then negate BOTH m and n.
                     for(m=1; m <= (int)ws->Nx; m++){
+                        // Calculate the horizontal wavenumber component
+                        nu_x = TWOPI * m/ws->Lx;
                         // Calculate the LAM index
                         lam_i = m + n*icoef + izero;
-                        // Calculate horizontal and theta wavenumbers
-                        nu_x = m/ws->Lx;
-                        nu_th = nu_x*c_th + n*s_th/ws->Ly;
-                        // Phase shift implied by the disc location
-                        ft2 = -2 * M_PI * nu_x * d;
+                        // This is actually 2*pi*phi
+                        phi = nu_x*x0 + nu_y*y0;
+                        nu_th = nu_x*c_th + nu_y*s_th;
                         // Case out zero wavenumber
                         if(nu_th == 0){
-                            zt1 = ejtheta(ft2) * (r1-r0);
+                            zt1 = (r1-r0) * ejtheta(phi);
                         }else{
-                            ft1 = 2 * M_PI * nu_th;
-                            zt1 = (ejtheta(ft1*r1 + ft2) - ejtheta(ft1*r0 + ft2)) / (ft1 * I);
+                            zt1 = (ejtheta(nu_th*r1 + phi) - ejtheta(nu_th*r0 + phi)) / (nu_th * I);
                         }
                         LAM[lam_i] = zt1;
-                        // Assign the complex conjugate
+                        // Assign the complex conjugate at -m,-n
                         lam_i = -m -n*icoef + izero;
                         LAM[lam_i] = conj(zt1);
                     }// m
@@ -545,13 +658,13 @@ void* read_thread(void *arg){
     }
     pthread_mutex_unlock(&ws->_matlock);
 
-
     free(AP);
     AP = NULL;
     free(B);
     B = NULL;
     free(LAM);
     LAM = NULL;
+    
     return NULL;
 }
 
