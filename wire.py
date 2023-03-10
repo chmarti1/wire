@@ -110,11 +110,14 @@ class WireData:
     """The WireData class is a wrapper for interacting with raw wire data
 
 The WireData binary files are inputs to the WSOLVE executable.  They are
-entries with double precision floating point data quartets,
+entries with double precision floating point data groups,
 
     radius, x, y, angle, current
     
-Each "data point" is one of these groups of five 
+Each "data point" is one of these groups of five double precision floats
+that specifies the radius of the wire (allowing multiple wires), the x,y
+location of the disc center, the wire angle in radians, and the wire 
+current.
 """
     
     def __init__(self, filename):

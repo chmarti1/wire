@@ -48,12 +48,17 @@
  * 
  * WS_OPEN(), WS_READ(), and WS_CLOSE()
  * manage the file that contains the raw data that construct the problem.
- * The binary file should contain groups of four double-precision values
- * in order: (R, D, THETA, I).  R is the wire radius, D is the disc 
- * distance from the y-axis, THETA is the wire angle, and I is the 
+ * The binary file should contain groups of five double-precision values
+ * in order: (R, X, Y, THETA, I).  R is the wire radius, X,Y is the 
+ * location of the disc center, THETA is the wire angle, and I is the 
  * measured wire current. 
  * 
- * WS_READ() is designed to be called multiple times in parallel by 
+ * WS_READ() calls the READ_THREAD() function in a number of parallel
+ * threads to stream in data from the source file into the WireSlice
+ * struct's A matrix and B vector.  
+ * 
+ * After WS_SOLVE() returns successfully, the solution vector can be 
+ * written to a file using WS_WRITE().
  * 
  */
 
@@ -116,8 +121,10 @@ int ws_read(WireSlice_t * ws, char * filename, int nthread);
 /* WS_SOLVE -   Solve the problem defined by ws_init and ws_read
  *  ws      :   WireSlice struct
  *
- * Returns 0 on success
- * Returns -1 on failure
+ * Returns the return value of the LAPACK's ZPPSV function. It is 
+ * negative if there is an error in the configuration parameters, and 
+ * it is positive if the matrix is singular or there is some other error
+ * in the process.  The return value is zero on success.
  */
 int ws_solve(WireSlice_t * ws);
 
