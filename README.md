@@ -162,7 +162,8 @@ Ny.
   Raw data are read in double-precision floating point groups from a
   data file. A group includes the wire radius, R, the X and Y location
   of the disc center in the domain, the disc angle in radians, THETA,
-  and the measured wire current in that configuration, I. The R,X,Y,THETA,I  groups repeat in the file with no header, footer, and with no separation,
+  and the measured wire current in that configuration, I. The R,X,Y,THETA,I  
+  groups repeat in the file with no header, footer, and with no separation,
       ...
     [R     double]
     [X     double]
