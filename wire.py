@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Spinning Disc Langmuir Probe (SDLP) spatial measurement utilities
+"""Langmuir probe spatial measurement utilities
 
 *** AS A COMMAND LINE UTILITY ***
 The wire.py file can be used as a commandline utility.  It accepts the
@@ -7,8 +7,8 @@ format:
     $ wire.py [options] <command> ...
     
 Commands recognized by wire.py are:
-    stat    Collect and display statistics from a wire file
-    
+    stat    Collect and display statistics from a wire data file
+    view    Produce a pseudocolor image from a wire coefficient file
 
 # Print help and exit
     $ wire.py -h
@@ -35,6 +35,8 @@ for analyzing the wire data files and the wsolve output data:
     coefficients.
     
 For more information call the inline help for each of these classes.
+
+(c)2023 Christopher Martin
 """
 
 import numpy as np

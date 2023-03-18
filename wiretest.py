@@ -28,6 +28,8 @@ This simulates a single measurement given a single wire location.
 
 To generate a wire data file with a single command, see the TestSection
 generate() method help.
+
+(c)2023 Christopher Martin
 """
 
 import wire

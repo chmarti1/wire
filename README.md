@@ -1,4 +1,4 @@
-# WIRE
+# WIRE <a name="top"></a>
 
 The WIRE repository provides numerical tools for calculating spatially resolved ion current densities given many individual cylindrical (wire) Langmuir probe measurements.  
 
@@ -23,6 +23,8 @@ The process begins with a wire data file (`*.wd`), containing many data with dif
 ```
 
 The `wsolve` binary accepts the wire data file as an input and uses least square regression to produce a file containing coefficients for a 2D Fourier series for the spatial wire current density in the plane of measurement.
+
+[Top](#top)
 
 ## Tools <a name='tools'></a>
 
@@ -66,6 +68,8 @@ Finally, a pseudocolor image is constructed from the coefficients by the `wire.p
 
 This shows the superposition of a positive and negative gaussian function with equal peak magnitudes but opposite signs, forming a ring.
 
+[Top](#top)
+
 ### wiretest.py <a name='wiretestpy'></a>
 
 The `wiretest.py` Python module doubles as an exectuable script.  It accepts no arguments and generates a file, `test.wd`, containing simulated data for a disc spinning a single wire with radius 4cm, with a disc center advancing from (-4.4, 0.5) to (-3.4, 0.5) in increments of 0.01cm.  The resulting data are shown in Figure 1.
@@ -104,7 +108,11 @@ This simulates a single measurement given a single wire location.
 
 To generate a wire data file with a single command, see the TestSection
 generate() method help.
+
+(c)2023 Christopher Martin
 ```
+
+[Top](#top)
 
 ### wsolve <a name='wsolve'></a>
 
@@ -238,8 +246,9 @@ dshift parameters will not be read.
   Run quietly; disables printing status messages to stdout.
 
 (c)2023 Christopher R. Martin
-
 ```
+
+[Top](#top)
 
 ### wsolve.h <a name='wsolveh'></a>
 
@@ -350,11 +359,61 @@ int ws_write(WireSlice_t * ws, char * filename);
 int ws_shift(WireSlice_t * ws, double x, double y);
 ```
 
+[Top](#top)
+
 ### wire.py <a name='wirepy'></a>
 
+Just like `wiretest.py`, `wire.py` doubles as a command-line executable and an importable module.  As a reminder, users can always display help information with:
+```bash
+$ ./wire.py -h
+  ...
+```
 
+**As a command-line utility**, `wire.py` expects the command-line syntax
+```bash
+$ ./wire.py [options] <command> <source> <target>
+```
+The behavior of the utility depends on the command, and there are currently only two commands available: `stat` and `view`.
 
-## Compilation <a name='comp'></a>
+**The `stat` command** asks `wire.py` to open a wire data file (`*.wd`), and produce statistics on how the wire tip is distributed in the data.  This is essential to avoid a configuration that results in a singular problem in `wsolve`.  For example, 
+```
+$ ./wire.py stat test.wd test_stat.png
+File:test.wd
+10201 data points
+Config:wsolve.conf
+  Nx:19
+  Ny:30
+  Lx:0.8
+  Ly:0.8
+Grid...
+  x:[-28, 28]  bin: 0.021052631578947368
+  y:[-52, 37]  bin: 0.013333333333333334
+Domain...
+  0 of 2379 bins with no data
+  2 minimum data
+  6 maximum data
+  2.3455233291298865 mean data per bin
+
+```
+
+![test_stat.png](docs/figures/test_stat.png)
+**Figure 3** - The histogram (left) and a scatter plot (right) of the wire tip locations from `test.wd`
+
+In the `stat` analysis, the domain (shown in red) and the surrounding area is divided into bins half the shortest x- and y-wavelengths.  The histogram in the output plot is a pseudocolor representation of the number of wire tip densities in each.  This is extremely useful for determining how the `Nx` or `Ny` parameters should be adjusted.  For detailed information, consult the in-line help by typing
+```bash
+$ ./wire.py -h stat
+  ...
+```
+
+**The `view` command** asks `wire.py` to construct a pseudocolor image from the coefficient file (`*.wc`) produced by `wsolve`.  The example [above](#tools) shows how it can be used, with the line
+```bash
+$ ./wire.py view test.wc test.png
+```
+which accepts the wire coefficient file as 
+
+[Top](#top)
+
+## Compiling <a name='comp'></a>
 
 The `wsolve` binary is written for compilation on a Posix OS, so it will run on most Linux distributions and possibly Apple OSX.  It has only been tested on Linux Mint 20.
 
@@ -366,3 +425,4 @@ $ sudo make pre
 $ make wsolve
 ```
 
+[Top](#top)
