@@ -15,13 +15,13 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 "output of WSOLVE is a set of complex-valued coefficients for a Fourier\n"\
 "series on x and y that optimally match the raw measurements.\n"\
 "\n"\
-"            Nx     Ny              /       ->   -> \\ \n"\
-"    Ibar = sum    sum    c_m,n exp | 2pi j nu . x  | \n"\
-"           m=-Nx  n=-Ny            \\               / \n"\
+"            Nx     Ny              /   ->   -> \\ \n"\
+"    Ibar = sum    sum    c_m,n exp | j nu . x  | \n"\
+"           m=-Nx  n=-Ny            \\           / \n"\
 "\n"\
-"    ->    m  ^      n  ^\n"\
-"    nu = --- i  +  --- j\n"\
-"          Lx        Ly\n"\
+"    ->       /  m  ^      n  ^ \\\n"\
+"    nu = 2pi | --- i  +  --- j |\n"\
+"             \\  Lx        Ly   /\n"\
 "\n"\
 "Here, Lx and Ly are the horizontal and vertical size of the rectangular\n"\
 "domain.  The indices, m and n, form a wave number vector, nu.  The\n"\
@@ -29,8 +29,8 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 "Ny.\n"\
 "\n"\
 "<infile>\n"\
-"  Raw data are read in double-precision floating point quartets from a\n"\
-"  data file. A quartet includes the wire radius, R, the X and Y location\n"\
+"  Raw data are read in double-precision floating point groups from a\n"\
+"  data file. A group includes the wire radius, R, the X and Y location\n"\
 "  of the disc center in the domain, the disc angle in radians, THETA,\n"\
 "  and the measured wire current in that configuration, I. The R,X,Y,THETA,I"\
 "  groups repeat in the file with no header, footer, and with no separation,\n"\

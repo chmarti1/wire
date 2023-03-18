@@ -28,8 +28,8 @@ for analyzing the wire data files and the wsolve output data:
     The WireData class interacts with a wire data file.  It can be used
     to read or write these files.
     
-  SliceData
-    The SliceData class loads the complex coefficients that are output by
+  WireCoefficients
+    The WireCoefficients class loads the complex coefficients that are output by
     wsolve.  A class instance can be used to evaluate the solution at 
     arbitrary points in the domain, generate plots, or recall the raw
     coefficients.
@@ -223,7 +223,7 @@ Reads in numpy arrays of radius, distance, angle, and current.
             
         
 
-class SliceData:
+class WireCoefficients:
     def __init__(self, filename):
         self.N = None
         self.L = None
@@ -245,7 +245,7 @@ class SliceData:
             raw = array.array('d', raw)
             nn = len(raw)
             if nn//2 != self.ncoef+1:
-                raise Exception(f'SliceData: Coefficient dimension missmatch; NCOEF: {self.ncoef} NREAD: {nn//2}')
+                raise Exception(f'WireCoefficients: Coefficient dimension missmatch; NCOEF: {self.ncoef} NREAD: {nn//2}')
             nn -= 2
             self.C = np.array(raw[0:nn:2]) + 1j*np.array(raw[1:nn:2])
             self.C_mn = np.reshape(self.C, 2*self.N+1)
@@ -281,9 +281,9 @@ class SliceData:
     index = SD.mn_to_index(m,n)
 """        
         if abs(m) > self.N[0]:
-            raise KeyError(f'SliceData[m,n] index is out of range: m={m}; Nx={self.N[0]}')
+            raise KeyError(f'WireCoefficients[m,n] index is out of range: m={m}; Nx={self.N[0]}')
         elif abs(n) > self.N[1]:
-            raise KeyError(f'SliceData[m,n] index is out of range: n={n}; Ny={self.N[1]}')
+            raise KeyError(f'WireCoefficients[m,n] index is out of range: n={n}; Ny={self.N[1]}')
         return (m+self.N[0]) + (n+self.N[1])*(2*self.N[0]+1)
 
     def index_to_mn(self, index):
@@ -291,7 +291,7 @@ class SliceData:
     m,n = SD.mn_to_index(index)
 """        
         if index<0 or index >= self.ncoef:
-            raise KeyError(f'SliceData[index] index is out of range: index={index}; ncoef={self.ncoef}')
+            raise KeyError(f'WireCoefficients[index] index is out of range: index={index}; ncoef={self.ncoef}')
         n,m = divmod(index, 2*self.N[0]+1)
         return m-self.N[0], n-self.N[1]
         
@@ -491,13 +491,13 @@ if __name__ == '__main__':
         
     elif cmd == 'view':
         if len(args)!=3:
-            print(help_text['hist'])
+            print(help_text['view'])
             raise Exception('After command "view" two arguments are expected.')
             
         infile = args[1]
         target = args[2]
         
-        sd = SliceData(infile)
+        sd = WireCoefficients(infile)
         x,y = sd.grid()
         
         fig,ax = plt.subplots(1,1,figsize=(6,6))

@@ -1,6 +1,34 @@
 #!/usr/bin/python3
-# Wiretest
-#   Generate pseudo data to test the wiretools pacakge
+""" wiretest - Generate simulated wire data to test the wsolve binary
+
+The TestSection class constructs wire data from Signal elements in the 
+test domain.  These simple shapes of ion currents spread in space that
+can be superimposed to form a more complicated ion current pattern.
+
+The current available Signal elements are:
+    CircleSignal(x,y,r,a)
+    GaussianSignal(x,y,sigma,a)
+See their in-line documentation for more information.
+
+They are added to a TestSection instance using the addmember() method.
+For example,
+    ts = TestSection()
+    ts.addmember(GaussianSignal( 0.1, 0, 0.2, 2 ))
+adds a Gaussian distribution with its center at (0.1, 0), with standard
+deviation 0.2, and peak ampltitude 2.  After calling the addmember()
+method repeatedly to add all of the desired Signal elements, the 
+TestSection instance can be queried like a function,
+    I = ts(r,x,y,theta)
+where
+    r       := wire radius
+    x,y     := disc center location
+    theta   := wire angle
+    I       := simulated wire current
+This simulates a single measurement given a single wire location.
+
+To generate a wire data file with a single command, see the TestSection
+generate() method help.
+"""
 
 import wire
 import numpy as np
@@ -30,18 +58,17 @@ I = gs(r,d,theta)
     def __init__(self, x, y, sigma, A):
         self.x = x
         self.y = y
-        self.sigma = np.broadcast_to(sigma, (2,))
+        self.sigma = sigma
         self.A = A
         
     def __call__(self, r, x, y, theta):
         
-        r0 = d/np.cos(theta)
         dr = self.sigma/10
-        rr = np.arange(r0,r+0.5*dr,dr)
+        rr = np.arange(0,r+0.5*dr,dr)
         
-        x = rr*np.cos(theta) + x
-        y = rr*np.sin(theta) + y
-        ii = self.A * np.exp(-(x*x + y*y)/(2*self.sigma*self.sigma))
+        xx = rr*np.cos(theta) + x
+        yy = rr*np.sin(theta) + y
+        ii = self.A * np.exp(-(xx*xx + yy*yy)/(2*self.sigma*self.sigma))
         return np.trapz(ii,dx=dr)
 
 class CircleSignal(ProtoSignal):
@@ -136,22 +163,58 @@ Remove a member from the member signal list and return it
 
     def generate(self, filename, r, x, y, theta, show=False):
         """Generate a WireData dataset
-    ts.generate(filename, d, theta)
+    ts.generate(filename, r, x, y, theta)
     
 ** filename **
-The filename of the WireData to generate
+The filename of the WireData to generate.  Existing files will be 
+overwritten.
 
 ** r **
-Scalar or array-like wire radii
+Scalar or array-like wire radii.  If r is not a scalar, the x, y, theta
+arrays are repeated for each radius specified, as if each r-value 
+specifies a separate wire mounted on a disc.  Length units are arbitrary
+but must be consistent.
 
-** d, theta**
-Array-like values of d and theta to use when generating the file. 
+** x, y **
+Array-like values of x, y disc center to use when generating the file. 
+These arrays must be the same dimensions or broadcastable to the same 
+dimensions (see Numpy's broadcasting rules).  For example, a scalar for
+y and 1D array for x is permitted. See **data range** below for how data
+are populated.  Length units are arbitrary, but must be consistent.
+
+** theta **
+Array-like values of wire angle (in radians) to use when generating the 
+file.  
+
+** data range **
+Together, the arrays of radii, disc center location, and angles 
+represent a three-dimentional test matrix that will be fully populated
+in the wire data file.  It is equivalent to:
+    for this_r in r:
+        for this_x, this_y in zip(x,y):
+            for this_theta in theta:
+                ... (r,x,y,theta) code goes here ...
+
+For example:
+    ts.generate('test.wd', \
+            [8, 7.9], \
+            np.linspace(-9,-7,101), 
+            0., 
+            np.linspace(-0.18, 0.18, 101))
+            
+This example populates a file with 20,402 data elements representing 
+data collected from two wires at radii 8cm and 7.9cm on a disc moving 
+between -9cm and -7cm on the x-axis, and at angles between -0.18rad to
+0.18rad.  
 """
         
         r = np.atleast_1d(r)
         if show:
             Nr = len(r)
             fig,ax = plt.subplots(1,Nr,squeeze=False)
+            for rindex in range(len(r)):
+                ax[0,rindex].set_xlabel('Wire Angle (rad)')
+                ax[0,rindex].set_ylabel('Current (arb.)')
             II = np.empty_like(theta, dtype=float)
 
         x,y = np.broadcast_arrays(x,y)
@@ -166,14 +229,14 @@ Array-like values of d and theta to use when generating the file.
                             II[index] = I
                         wf.writeline(rr, xx, yy, th, I)
                     if show:
-                        ax[rindex,0].plot(theta,II,'k')
+                        ax[0,rindex].plot(theta,II,'k')
         if show:
             plt.show()
 
 
 if __name__ == '__main__':
     ts = TestSection()
-    ts.addmember(CircleSignal(0,  0, 0.35,  1.))
-    #ts.addmember(CircleSignal(0, -0.03, 0.25, -1.))
-    ts.generate('test.wf', 4, -np.linspace(4.4,3.4101), 0.5, np.linspace(-.3,.0,101),show=True)
+    ts.addmember(GaussianSignal(0, 0, 0.1,  1.))
+    ts.addmember(GaussianSignal(0, 0, 0.05, -1.))
+    ts.generate('test.wd', 4, -np.linspace(4.4,3.4,101), 0.5, np.linspace(-.3,.0,101))
 
