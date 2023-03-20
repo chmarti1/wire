@@ -226,6 +226,34 @@ Reads in numpy arrays of radius, distance, angle, and current.
         
 
 class WireCoefficients:
+    """WireCoefficients - load and interpret the output of wsolve
+    
+    wc = WireCoefficients('filename.wc')
+
+Once loaded, the WireCoefficients instance contains the configuration 
+settings that were used to calculate the coefficients.  The Nx, Ny, Lx,
+and Ly parameters are all stored in two-element arrays
+    [Nx, Ny] = wc.N
+    [Lx, Ly] = wc.L
+
+The total number of coefficients is also available
+    ncoef = wc.ncoef
+
+The coefficients are available by their m,n index
+    Cmn = wc[m,n]
+    
+or by in sequential order (this is probably less useful)
+    Ci = wc[index]
+    
+The WireCoefficients instance can be queried for ion current density
+like a function, using x,y coordinates (with array support) within the 
+domain
+    I = wc(x,y)
+
+Finally, a pseudocolor image of ion current density everywhere in the
+domain can be produced using the show() method.  See the show() 
+documentation for more information.
+"""
     def __init__(self, filename):
         self.N = None
         self.L = None
@@ -250,7 +278,6 @@ class WireCoefficients:
                 raise Exception(f'WireCoefficients: Coefficient dimension missmatch; NCOEF: {self.ncoef} NREAD: {nn//2}')
             nn -= 2
             self.C = np.array(raw[0:nn:2]) + 1j*np.array(raw[1:nn:2])
-            self.C_mn = np.reshape(self.C, 2*self.N+1)
             self.I0 = raw[nn]
         
         # Initialize the nu arrays
