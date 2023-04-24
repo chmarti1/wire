@@ -15,13 +15,13 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 "output of WSOLVE is a set of complex-valued coefficients for a Fourier\n"\
 "series on x and y that optimally match the raw measurements.\n"\
 "\n"\
-"            Nx     Ny              /       ->   -> \\ \n"\
-"    Ibar = sum    sum    c_m,n exp | 2pi j nu . x  | \n"\
-"           m=-Nx  n=-Ny            \\               / \n"\
+"            Nx     Ny              /   ->   -> \\ \n"\
+"    Ibar = sum    sum    c_m,n exp | j nu . x  | \n"\
+"           m=-Nx  n=-Ny            \\           / \n"\
 "\n"\
-"    ->    m  ^      n  ^\n"\
-"    nu = --- i  +  --- j\n"\
-"          Lx        Ly\n"\
+"    ->       /  m  ^      n  ^ \\\n"\
+"    nu = 2pi | --- i  +  --- j |\n"\
+"             \\  Lx        Ly   /\n"\
 "\n"\
 "Here, Lx and Ly are the horizontal and vertical size of the rectangular\n"\
 "domain.  The indices, m and n, form a wave number vector, nu.  The\n"\
@@ -29,8 +29,8 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 "Ny.\n"\
 "\n"\
 "<infile>\n"\
-"  Raw data are read in double-precision floating point quartets from a\n"\
-"  data file. A quartet includes the wire radius, R, the X and Y location\n"\
+"  Raw data are read in double-precision floating point groups from a\n"\
+"  data file. A group includes the wire radius, R, the X and Y location\n"\
 "  of the disc center in the domain, the disc angle in radians, THETA,\n"\
 "  and the measured wire current in that configuration, I. The R,X,Y,THETA,I"\
 "  groups repeat in the file with no header, footer, and with no separation,\n"\
@@ -51,7 +51,6 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 "    [Ny uint32]\n"\
 "    [Lx double]\n"\
 "    [Ly double]\n"\
-"    [dshift double]\n"\
 "      ...\n"\
 "    [c_k-1_real double]\n"\
 "    [c_k-1_imag double]\n"\
@@ -98,9 +97,9 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 "numebr of wavenumbers on each axis.  Lx and Ly specify the rectangular\n"\
 "domain width and height.\n"\
 "\n"\
-"Finally, dshift is a constant that will be added to all values of \"D\" read\n"\
-"from the data files. This has the effect of shifting the rectangular domain\n"\
-"relative to the data.\n"\
+"Finally, xshift and yshift specify an offset to add to all x- and y-\n"\
+"coordinates from the data files. This has the effect of shifting the\n"\
+"rectangular domain relative to the data.\n"\
 "\n"\
 "To simplify the code, the configuration file format is extremely strict.\n"\
 "All characters are case sensitive, and the order must not be changed.\n"\
@@ -117,7 +116,8 @@ const char help_text[] = "wsolve [options] <infile> <outfile>\n"\
 "-q\n"\
 "  Run quietly; disables printing status messages to stdout.\n"\
 "\n"\
-"(c)2023 Christopher R. Martin\n";
+"(c)2023 Christopher R. Martin\n"\
+"\n";
 
 
 

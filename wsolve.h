@@ -25,14 +25,14 @@
  * expressing
  * 
  * Sets up a linear system to solve for C coefficients in the expansion
- *               Nx     Ny               /       ->  ->    \
- *      Ibar =  sum    sum      c    exp | 2j pi X . NU    |
- *             m=-Nx  n=-Ny      m,n     \             m,n /
+ *               Nx     Ny               /  ->  ->    \
+ *      Ibar =  sum    sum      c    exp |  X . NU    |
+ *             m=-Nx  n=-Ny      m,n     \        m,n /
  * 
  * where
- *      ->  ->          m*x       n*y
- *      X . NU      =  -----  +  -----
- *            m,n        Lx        Ly
+ *      ->  ->            /  m*x       n*y  \
+ *      X . NU      = 2pi | -----  +  ----- |
+ *            m,n         \   Lx        Ly  /
  * 
  * given a series of measurements of Ibar integrated along line segments
  * passing through the domain.
@@ -48,30 +48,35 @@
  * 
  * WS_OPEN(), WS_READ(), and WS_CLOSE()
  * manage the file that contains the raw data that construct the problem.
- * The binary file should contain groups of four double-precision values
- * in order: (R, D, THETA, I).  R is the wire radius, D is the disc 
- * distance from the y-axis, THETA is the wire angle, and I is the 
+ * The binary file should contain groups of five double-precision values
+ * in order: (R, X, Y, THETA, I).  R is the wire radius, X,Y is the 
+ * location of the disc center, THETA is the wire angle, and I is the 
  * measured wire current. 
  * 
- * WS_READ() is designed to be called multiple times in parallel by 
+ * WS_READ() calls the READ_THREAD() function in a number of parallel
+ * threads to stream in data from the source file into the WireSlice
+ * struct's A matrix and B vector.  
+ * 
+ * After WS_SOLVE() returns successfully, the solution vector can be 
+ * written to a file using WS_WRITE().
  * 
  */
 
 typedef struct WireSlice {
-    Element * AP;
-    Element * B;
-    unsigned int Nx, Ny;
-    double Lx, Ly;
-    double xshift, yshift;
-    unsigned int ncoef;
-    unsigned int nAP;
-    unsigned int ntotal, ndata, nused;
-    unsigned char _halt;
-    unsigned char _verbose;
-    time_t _start;
-    pthread_mutex_t _matlock;
-    pthread_mutex_t _filelock;
-    FILE * target;
+    Element * AP;                       // The solution matrix (UP Hermitian)
+    Element * B;                        // The solution vector
+    unsigned int Nx, Ny;                // Number of wavernumbers in expansion
+    double Lx, Ly;                      // Domain size in x and y
+    double xshift, yshift;              // Shift the disc locations by...
+    unsigned int ncoef;                 // Total number of coefficients
+    unsigned int nAP;                   // Size of the AP matrix
+    unsigned int ntotal, ndata, nused;  // Data statistics (total, processed, used)
+    unsigned char _halt;                // Flag to tell threads to stop
+    unsigned char _verbose;             // Print to stdout?
+    time_t _start;                      // Used to track execution times
+    pthread_mutex_t _matlock;           // MUTEX to protect writes to AP and B
+    pthread_mutex_t _filelock;          // MUTEX to protext writes to the file
+    FILE * target;                      // The file being operated on
 } WireSlice_t;
 
 /* Prototypes
@@ -81,6 +86,7 @@ typedef struct WireSlice {
  *  ws_read     : Read all data into the struct
  *  ws_solve    : Solve the problem defined by ws_init and ws_read
  *  ws_write    : Write the solution results to a file
+ *  ws_shift    : Apply an x- and y- offset to the disc locations read
  * 
  */
  
@@ -116,8 +122,10 @@ int ws_read(WireSlice_t * ws, char * filename, int nthread);
 /* WS_SOLVE -   Solve the problem defined by ws_init and ws_read
  *  ws      :   WireSlice struct
  *
- * Returns 0 on success
- * Returns -1 on failure
+ * Returns the return value of the LAPACK's ZPPSV function. It is 
+ * negative if there is an error in the configuration parameters, and 
+ * it is positive if the matrix is singular or there is some other error
+ * in the process.  The return value is zero on success.
  */
 int ws_solve(WireSlice_t * ws);
 
@@ -240,7 +248,6 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
     int ii, err, thrd_err;
     // Bracket the number of threads between 1 and MAX_THREADS
     nthread = nthread <= 1 ? 1 : (nthread > MAX_THREADS ? MAX_THREADS : nthread);
-    printf("nthread: %d\n", nthread);
     // Is a file already open!?
     if(ws->target)
         return -1;
@@ -249,7 +256,7 @@ int ws_read(WireSlice_t * ws, char *filename, int nthread){
         return -1;
     // Detect the nuber of available data points
     fseek(ws->target, 0, SEEK_END);
-    ws->ntotal = ftell(ws->target) / (4 * sizeof(double));
+    ws->ntotal = ftell(ws->target) / (NREAD * sizeof(double));
     fseek(ws->target, 0, SEEK_SET);
     if(ws->_verbose){
         printf("  Using %d threads to read from file: %s\n", nthread, filename);

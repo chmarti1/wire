@@ -25,9 +25,29 @@
 
 \section{Introduction}
 
-The Spinning Disc Langmuir Probe (SDLP) was first employed in the late twentieth century as a method to measure ion densities in dense plasmas -- specifically in flames.  The Langmuir probe, named for Irving Langmuir, is little more than a metal surface inserted into a plasma that, with an applied bias voltage yields an electrical current that can be used to deduce the density of ions near its surface.  Unlike sparse plasmas, atmospheric flames are effective at transferring heat, so the probes need either to be actively cooled (as in the famous studies by Cacote\cite{}), or the residence time in the flame must be very short (as in the studies by Clements, Smy, Maclatchey, Dawe and others \cite{}).  
+\subsection{Background}
 
-In the latter studies, the probe is a wire mounted on a disc, which spun to limit the wire's residence in the flame.  Compared with electrical phenomena, the thermal response of even the finest wire is slow, making it possible to find speeds that are slow relative to the measurement, but fast enough to allow the probe to survive repeated tests.
+The Langmuir probe, named for Irving Langmuir, is little more than a metal surface inserted into a plasma.  Figure \ref{fig:probe} depicts a probe with a cylindrical cross-section in a hypothetical plasma flowing from left-to-right.  When a sufficiently negative bias voltage is applied, electrons are driven away from the probe, but positive ions still impact its surface.  The result is an electrical current that may be used to deduce the density of positive ions in the fluid.  
+
+In flames, heat transfer to the wire is sufficiently intense to destroy it, so the probes need to be actively cooled as in the famous studies by Cacote\cite{}, or the residence time in the flame must be very short as in the studies by Clements, Smy, Maclatchey, Dawe and others \cite{}.  As is evident in the latter studies, the methods used to calculate ion density in dense flowing plasmas are different from the classical methods used in sparse plasmas, but regardless of the theory used, the critical measurement is a probe surface current density at a given bias voltage.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.97\linewidth]{figures/probe}
+\caption{Example cross-section of a cylindrical Langmuir probe.  Electrons are repelled by a negative bias voltage, so currents are due to the impact of positive ions.}\label{fig:probe}
+\end{figure}
+
+For the calculations of ion density to be valid, the probe must be smaller than the length scales over which ion density changes in the fluid, but there is an essential limit to how small cylindrical probes can be before they are destroyed thermally.  For a cylinder of length, $L$, and diameter, $D$, heat transfer into the probe is proportional to $LD$.  For passive cooling, heat transfer through the probe is proportional to $D^2/L$, and for many types of active cooling, it will be proportional to $D^2$.  Regardless of the type of cooling, as $D$ diminishes, the cooling vanishes far more quickly than the rate of heating.  
+
+Therefore, it is impractical to take high resolution Langmuir probe measurements in a dense plasma where the probe is allowed to reach its steady-state temperature.  What we will call ``transient insertion Langmuir probes'' (TILP) leave the probe in the plasma long enough to reach electrical steady-state, but briefly enough to limit the heat that enters the probe.  Spinning discs were first employed in the late twentieth century as a method to measure ion densities in dense plasmas -- specifically in flames.  However, other strategies for transient insertion are possible: a wire rapidly injected and retracted along its axis, a ceramic wheel with metal plates on its radius, a sphere on a pendulum, or even a sacrificial probe that is inserted and destroyed after the measurement is complete.
+
+\subsection{Spatial Measurements}
+
+In Calcote's experiments' the probe was insulated along its length except for its tip.  If the currents are guaranteed to enter at the probe's tip, the probe merely needs to be moved the locations where measurements are desired.  However, fine uninsulated wires have advantages: (1) they are much easier to fabricate, (2) they are smaller, (3) the metal resists thermal and chemical damage more easily than most insulators.  Also, if there is damage to the insulation, leakage currents can corrupt the measurement in ways that are difficult to detect.  The disadvantage is obvious; for a single measurement, there is no way to determine how the currents are distributed along the wire's length.
+
+This work is devoted to a technique for extracting spatial information on current density from many measurements with many positions.  Provided the probe positions are carefully chosen, it is possible to reconstruct the spatial data.  While the analysis can be applied to any TILP, it is primarily derived for those mounted on spinning discs.
+
+In the next section, we will establish the analysis, but the principle can be approached quite intuitively.  If spinning disc TILP were positioned so that the probe never enters the plasma, no current would be measured at any point of the probe's transit.  Then, if it were advanced into the plasma until the first traces of current are detected, the measured currents are certain to have come from the wire tip - the spatial location of those currents is clear.  Then, if the disc were further advanced, the probe would penetrate deeper into the plasma.  The pulse of current would broaden and grow as currents are collected at wider disc angles and over a longer length of the probe.  Rather than consider this signal on its own, we could intuitively observe that the amount by which the signal increased from the last measurement indicates the additional current encountered at the wire's tip - spatial location of the current is \emph{still} clear.  If this were repeated over the entire thickness of the plasma, a cross-section can be constructed.
 
 \section{Derivation}
 
@@ -75,18 +95,20 @@ The integral of $\I$ requires an $x,y$ parametric formulation of the wire's path
 \hat{e}_\theta = \cos(\theta) \ui + \sin(\theta) \uj.
 \end{align}
 
-If $r$ is the distance along the wire from the disc center at $x=-d$, the corresponding location in $(x,y)$ is
+If $r$ is the distance along the wire from the disc center at $\x_0$, the corresponding location is
 \begin{align}
 \x &= r \eth + \x_0
 \end{align}
-The dot product of $\x$ and $\vnu$ yields two terms along the wire's path; one with the wavenumber along the wire (in the $\eth$ direction) and one constant scalar, $\vnu \cdot \x_0$,
+The dot product of $\x$ and $\vnu$ yields two terms:
 \begin{align}
 \vnu \cdot \x &= r (\vnu \cdot \hat{e}_\theta) + (\vnu \cdot \x_0)\nonumber\\
  &= \nu_{m,n|\theta} r + \pmn\\
 \nuth &= 2\pi \left( \frac{m}{L_x} \cos(\theta) + \frac{n}{L_y} \sin(\theta) \right)\\
-\pmn &= 2\pi \left( \frac{m}{L_x} x_0 + \frac{n}{L_y} y_0 \right)
+\pmn &= 2\pi \left( \frac{m}{L_x} x_0 + \frac{n}{L_y} y_0 \right).
 \end{align}
-In the domain, the term still has its two-dimensional wave properties, but if we were to travel only along a wire at angle, $\theta$, the $(m,n)$ term of the expansion would appear to have wave number $\nuth$.  Note that it can be zero, even when both $x-$ and $y-$components of $\vnu$ are non-zero; when $\vnu$ is normal to $\eth$.
+In the domain, the term still has its two-dimensional wave properties, but if we were to travel only along a wire at angle, $\theta$, the $(m,n)$ term of the expansion would appear to have wave number $\nuth$.  The second parameter, $\pmn$, is a phase that accounts for the distance along the wire to the disc center.
+
+Later, it will be vital to note that $\nuth$ can be zero, even when both $x-$ and $y-$components of $\vnu$ are non-zero; when $\vnu$ is normal to $\eth$.  This condition is uncommon, but not impossible, so it will be vital for a well formulated code to detect it.
 
 Once substituted into the Fourier expansion, a single term becomes
 \begin{align*}
@@ -97,56 +119,31 @@ Here, the disc center location, $\x_0$, appears intuitively as a phase shift.
 
 It is convenient to define a new parameter, $\lambda_{m,n}$, which represents the value of the exponential integrated over $r$:
 \begin{align}
-\lambda_{m,n}(d,\theta) &= \int_{R_0}^{R_1} \exp\Bigl[ j \left(\nuth\,r + \pmn \right)\Bigr] \d r \nonumber\\
+\lambda_{m,n}(R,\x_0,\theta) &= \int_{R_0}^{R_1} \exp\Bigl[ j \left(\nuth\,r + \pmn \right)\Bigr] \d r \nonumber\\
  &= \left\{\begin{array}{c@{\ :\ }l}
  \displaystyle (R_1 - R_0) \exp\Bigl[j \pmn \Bigr] & \nuth = 0  \vspace{1.0em} \\
 \displaystyle \frac{1}{j \nuth}\exp\Bigl[j \left(\nuth\,r + \pmn \right)\Bigr]^{R_1}_{R_0} & \mathrm{otherwise}
 \end{array}
 \right.
 \end{align}
-It is worth repeating that the wavenumber, $\nuth$, can be zero when $m=n=0$ or when $\eth$ is exactly normal to the wavenumber vector.  The latter is numerically improbable, but not impossible, so  well designed algorithm should test for its possibility.
+Note that we have expressed $\lambda$ as a function of the wire radius, $R$, the disc center, $\x_0$, and the wire angle relative to the $x-$axis, $\theta$.  It is worth emphasizing because all of these dependencies are implicit through $R_1$, $R_0$, $\nu_{m,n|\theta}$, and $\phi_{m,n}$.
 
 This yields an expression for the total wire current
 \begin{align}
-I(d,\theta) &= \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \lambda_{m,n}(d,\theta).
+I(R,\x_0,\theta) &= \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \lambda_{m,n}(R,\x_0,\theta).
 \end{align}
 
 \subsection{Offset current}
 
 Every experiment begins by zeroing the current signal to the nearest practical precision, but no real signal will ever be perfectly zero to numerical precision.  Normally, this would not be especially problematic, but the derivation above provides no representation of current sources outside of the domain.  To prevent the kinds of bizarre numerical phenomena that can occur when models awkwardly attempt to match behaviors beyond their capability, it is prudent to add a global offset parameter, $I_0$,  
 \begin{align}
-I(d,\theta) &= I_0 + \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \lambda_{m,n}(d,\theta)\label{eqn:I}.
+I(R,\x_0,\theta) &= I_0 + \sum_{m=-N_x}^{N_x} \sum_{n=-N_y}^{N_y} c_{m,n} \lambda_{m,n}(R,\x_0,\theta)\label{eqn:I}.
 \end{align}
-
-\subsection{Radii of intersection}
-
-It is possible (and potentially even desirable) to consider disc locations on all sides of the domain, so the method by which an algorithm can efficiently determine the bounds of integration, $R_0$, and $R_1$, could take a number of different forms.  The path of the wire, we have already established, is
-\begin{align}
-\x = \x_0 + r \eth \hspace{1em} \forall \hspace{1em} r \in [0,R].
-\end{align}
-The domain may be thought of as the region bounded by intersecting vertical lines passing through $x=\pm L_x/2$ and horizontal lines passing through $y=\pm L_y/2$.  It is simple to calculate a radius at which a line projected along the wire would intersect each of these, but the numbers will be infinite when the wire is precisely parallel or vertical.  This is addressed by, instead, calculating the inverse, $\rho = 1/r$, of intersection radius for each of the four domain walls,
-\begin{subequations}
-\begin{align}
-\rho_{AB} &= \frac{\cos(\theta)}{-L_x/2 - x_0}\\
-\rho_{BC} &= \frac{\sin(\theta)}{L_y/2 - y_0}\\
-\rho_{CD} &= \frac{\cos(\theta)}{L_x/2 - x_0}\\
-\rho_{DA} &= \frac{\sin(\theta)}{-L_y/2 - y_0}.
-\end{align}
-\end{subequations}
-Each of these intersections occurs at a distance from the $x-$ or $y-$axis,
-\begin{align}
-d_{AB} &= y_0 + \sin(\theta)/\rho_{AB}\\
-d_{BC} &= x_0 + \cos(\theta)/\rho_{BC}\\
-d_{AB} &= y_0 + \sin(\theta)/\rho_{AB}\\
-d_{AB} &= x_0 + \sin(\theta)/\rho_{AB}.
-\end{align}
-If $\rho$ is less than $1/R$, or if $d$ is outside of the line segment length, then the wire does not intersect the segment.
-
 
 
 \section{Solution}
 
-Fourier transforms classically take advantage of the orthogonality of the sinusoidal basis functions, so the original signal only needs to be integrated against each basis function over the entire domain to calculate the magnitude and phase of that component.  Because no single wire position spans the entire domain, this approach is not tenable.  Instead, a vector of coefficients must be solved by inverting a matrix.
+Fourier transforms classically take advantage of the orthogonality of the sinusoidal basis functions, so the original signal only needs to be integrated against each basis function over the entire domain to calculate the magnitude and phase of that component.  Because no single wire position spans the entire domain, this approach is not tenable.  Instead, a vector of coefficients must be solved by inverting a matrix.  Incidentally, the matrix inversion is not the most numerically costly part of the analysis.
 
 The exact scheme used to organize the coefficients into a vector, $\vec{c}$, is not especially important, but it might be something along the lines of 
 \begin{align}
@@ -161,15 +158,14 @@ n + N_y &= \mathrm{floor}(k / (2N_x+1))
 
 When the $\lambda$ values from (\ref{eqn:I}) are embedded into a second vector, $\vec{\Lambda}$, the equation may be rewritten
 \begin{align}
-I(d,\theta) = \vec{\Lambda}(d,\theta) \cdot \vec{c}.
+I(R,\x_0,\theta) = \vec{\Lambda}(R,\x_0,\theta) \cdot \vec{c}.
 \end{align}
-Here, $\vec{\Lambda}$, is a vector that models the contribution of each coefficient to the current of a wire in location $(d,\theta)$.
 
-For a given wire position, $(d_i, \theta_i)$, there will be a measured current, $I_i$.  For a given coefficient set, there will be an error,
+For the $i$th measurement, a wire with tip at raidus, $R_i$, disc center at $\x_i$, wire at an angle $\theta_i$, and a measured wire current, $I_i$, the error between the measurement and the Fourier expansion is
 \begin{align}
-e_i = I_i - \vec{\Lambda}(d_i, \theta_i) \cdot \vec{c}.
+e_i = I_i - \vec{\Lambda}(R_i, \x_i, \theta_i) \cdot \vec{c}.
 \end{align}
-For compactness of notation, it will be convenient to abbreviate $\vec{\Lambda}_i = \vec{\Lambda}(d_i, \theta_i)$ moving forward.  
+For compactness of notation, it will be convenient to abbreviate $\vec{\Lambda}_i = \vec{\Lambda}(R_i, \x_i, \theta_i)$ moving forward.  
 
 Though other methods exist, least squares regression is the most common method for extracting optimal coefficients.  Using this approach, the sum of the squares of the errors, $\sum e_i{^2}$, is differentiated with respect to each of the coefficients.  When error is minimal, that differential is zero.  So,
 \begin{align}
@@ -188,6 +184,6 @@ The multiplication, $\vec{\Lambda} \vec{\Lambda}^T$, forms a symmetrical matrix,
 
 The sum of both the constant vector (left-hand term) and the solution matrix (right-hand term) may be accumulated over hundreds of thousands of individual measurements, so accumulating the matrix is typically a more computationally intensive task than solving the linear algebra problem.
 
-
+Since there may be tens of thousands of individual wire measurements, aggregating the individual $\vec{\Lambda}$ vectors that is usually far more numerically expensive than calculating the inverse of the resulting matrix.  Fortunately, the calculation is extremely convenient to parallelize, since each measurement's contribution to the matrix and vector is independent of the others'.
 
 \end{document}
