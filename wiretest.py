@@ -30,14 +30,12 @@ I = gs(r,d,theta)
     def __init__(self, x, y, sigma, A):
         self.x = x
         self.y = y
-        self.sigma = np.broadcast_to(sigma, (2,))
+        self.sigma = sigma
         self.A = A
         
     def __call__(self, r, x, y, theta):
-        
-        r0 = d/np.cos(theta)
         dr = self.sigma/10
-        rr = np.arange(r0,r+0.5*dr,dr)
+        rr = np.arange(0,r+0.5*dr,dr)
         
         x = rr*np.cos(theta) + x
         y = rr*np.sin(theta) + y
@@ -173,7 +171,7 @@ Array-like values of d and theta to use when generating the file.
 
 if __name__ == '__main__':
     ts = TestSection()
-    ts.addmember(CircleSignal(0,  0, 0.35,  1.))
-    #ts.addmember(CircleSignal(0, -0.03, 0.25, -1.))
-    ts.generate('test.wf', 4, -np.linspace(4.4,3.4101), 0.5, np.linspace(-.3,.0,101),show=True)
+    ts.addmember(GaussianSignal(0,0,0.1,1.))
+    ts.addmember(GaussianSignal(0,0,0.05,-1.))
+    ts.generate('test.wf', 4, -np.linspace(4.4,3.4,101), 0.5, np.linspace(-.3,.0,101),show=True)
 

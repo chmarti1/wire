@@ -25,17 +25,17 @@
 
 \section{Introduction}
 
-The Spinning Disc Langmuir Probe (SDLP) was first employed in the late twentieth century as a method to measure ion densities in dense plasmas -- specifically in flames.  The Langmuir probe, named for Irving Langmuir, is little more than a metal surface inserted into a plasma.  When a bias voltage is applied, the resulting electrical currents can be used to deduce the density of ions around the probe.  In flames, heat transfer to the wire is sufficiently intense to destroy it.  So, the probes need to be actively cooled as in the famous studies by Cacote\cite{}, or the residence time in the flame must be very short as in the studies by Clements, Smy, Maclatchey, Dawe and others \cite{}.  
+The Spinning Disc Langmuir Probe (SDLP) was first employed in the late twentieth century as a method to measure ion densities in dense plasmas -- specifically in flames.  The Langmuir probe, named for Irving Langmuir, is little more than a metal surface inserted into a plasma that, with an applied bias voltage yields an electrical current that can be used to deduce the density of ions near its surface.  Unlike sparse plasmas, atmospheric flames are effective at transferring heat, so the probes need either to be actively cooled (as in the famous studies by Cacote\cite{}), or the residence time in the flame must be very short (as in the studies by Clements, Smy, Maclatchey, Dawe and others \cite{}).  
 
-In the latter studies, the wire was mounted on a disc, which spun at a speed sufficient to limit the wire's residence in the flame.  Compared with electrical phenomena, the thermal response of even the finest wire is slow, making it possible to find speeds that are slow relative to the measurement, but fast enough to allow the probe to survive repeated tests.
+In the latter studies, the probe is a wire mounted on a disc, which spun to limit the wire's residence in the flame.  Compared with electrical phenomena, the thermal response of even the finest wire is slow, making it possible to find speeds that are slow relative to the measurement, but fast enough to allow the probe to survive repeated tests.
 
 \section{Derivation}
 
-The probe wire tip protrudes a radius from the disc center, $R$, and rotates about a center at coordinates $\vec{x}_0 = x_0\ui + y_0\uj$.  At each sample, the probe will have an angle, $\theta$, will enter the domain at radius, $R_0$, and terminates at a radius, $R_1$.  The current measured by the probe, $I$, is an integral of the current per unit wire length, $\I$,
+The probe wire tip protrudes a radius from the disc center, $R$, and rotates about a center at coordinates $\vec{x}_0 = x_0\ui + y_0\uj$.  At each sample, the probe has have an angle, $\theta$, enters the domain at radius, $R_0$, and terminates at a radius, $R_1$.  The current measured by the probe, $I$, is an integral of the current per unit wire length, $\I$,
 \begin{align}
 I = \int_{R_0}^{R_1} \I \d r.
 \end{align}
-These dimensions are shown in Figure \ref{fig:coords}.  
+These dimensions are shown in Figure \ref{fig:coords}.  It should be noted that the upper bound of the integral, $R_1$, is shown as the radius at which it leaves the domain, but it can also be the wire tip if the wire terminates in the domain.
 \begin{figure}
 \centering
 \includegraphics[width=.9\linewidth]{figures/coords}
@@ -66,7 +66,7 @@ and $\x$ is the position in the domain,
 
 This formulation has $(2N_x+1)(2N_y+1)$ complex coefficients, and represents a function with periodicity $L_x$ on $x$ and $L_y$ on $y$.  It is continuous, but cannot resolve features with wavelengths shorter than $L_x / N_x$ and $L_y / N_y$.  In this way, the results are effectively spatially filtered by the highest wavenumber in the expansion.
 
-Because the coefficients are complex-valued, each of the $(2N_x+1)(2N_y+1)$ coefficients represents two unknowns.  However, because the function, $\I$, is strictly real-valued, the coefficients must occur in complex conjugate pairs.  As we will examine in more depth later, the number of unknonws only scales like $4N^2$ (when $N = N_x = N_y$)
+Because the coefficients are complex-valued, each of the $(2N_x+1)(2N_y+1)$ coefficients represents two unknowns.  However, because the function, $\I$, is strictly real-valued, the coefficients must occur in complex conjugate pairs.
 
 \subsection{Evaluating the integral}
 
