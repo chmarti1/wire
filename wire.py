@@ -363,7 +363,7 @@ the number of grid points in the x- and y-axes.
         else:
             fig = ax.get_figure()
         
-        ax.pcolor(x,y,self(x,y), shading='auto')
+        ax.pcolor(x,y,self(x,y))
         ax.set_aspect(self.L[1] / self.L[0])
         ax.set_xlim([-self.L[0]/2, self.L[0]/2])
         ax.set_ylim([-self.L[1]/2, self.L[1]/2])
