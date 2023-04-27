@@ -43,6 +43,7 @@ import numpy as np
 import array,struct
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
+
 import sys
 from getopt import getopt
 
@@ -324,34 +325,36 @@ documentation for more information.
         n,m = divmod(index, 2*self.N[0]+1)
         return m-self.N[0], n-self.N[1]
         
-    def grid(self,Nx=None, Ny=None):
+    def get_fft2(self):
+        """GET_FFT2 - return a 2D array of the complex coefficients in fft2 form
+"""
+        # We'll make a copy of C as a 2D array
+        C = np.reshape(self.C, 2*self.N + 1)
+        C2 = np.empty(2*self.N+1, dtype=complex)
+        # Swap the rows around
+        C2[:self.N[0]+1, :] = C[self.N[0]::-1, :]
+        C2[self.N[0]+1:, :] = C[-1:self.N[0]:-1, :]
+        # Swap the columns around
+        C2[:, :self.N[1]+1] = C2[:, self.N[1]::-1]
+        C2[:, self.N[1]+1:] = C2[:, -1:self.N[1]:-1]
+        return C2
+        
+    def grid(self):
         """GRID - evaluate the solution at grid points
     x,y,I = grid()
-        OR
-    x,y,I = grid(N)
-        Or
-    x,y,I = grid(Nx, Ny)
     
-If no argument is given, the grid spacing is selected automatically 
-based on the highest wave number in each axis.  If a single scalar 
-argument is given, it is treated as the number of grid oints in each
-axis.  If tuple pair of arguments are found, they are interpreted as 
-the number of grid points in the x- and y-axes.
+Uses the complex coefficients to construct the inverse FFT
 """
-        # If no arguments are given
-        if Nx is None:
-            if Ny is None:
-                Nx,Ny = 4*self.N+2
-            else:
-                raise Exception('Cannot specify Ny without specifying Nx.')
-        # If Nx is given
-        elif Ny is None:
-            Ny = Nx
+        # 
+
         # If Nx and Ny are given, do nothing        
         x = np.linspace(-self.L[0]/2,self.L[0]/2,2*Nx+1)
         y = np.linspace(-self.L[1]/2, self.L[1]/2, 2*Ny+1)
         x,y = np.meshgrid(x,y)
-        return x,y
+        
+        I = np.fft.ifft2(self.get_fft2())
+        
+        return x,y,I
 
     def show(self, x, y, ax=None, block=True):
         
@@ -405,7 +408,7 @@ if __name__ == '__main__':
     # Case out the commands
     if cmd == 'stat':
         if len(args)!=3:
-            print(help_text['hist'])
+            print(help_text['stat'])
             raise Exception('After command "hist" two arguments are expected.')
             
         infile = args[1]
@@ -480,8 +483,8 @@ if __name__ == '__main__':
         ax[1].set_aspect(1.0)
         
         N = len(r)
-        Id = np.abs(xx[:-1,:-1]) <= 0.5*config['Lx']
-        Id = np.logical_and(Id, np.abs(yy[:-1,:-1]) <= 0.5*config['Ly'])
+        Id = np.abs(xx[:-1,:-1]) <= Lx
+        Id = np.logical_and(Id, np.abs(yy[:-1,:-1]) <= Ly)
         Nbins = np.sum(Id)
         Nzero = np.sum(count[Id]==0)
         Nmin = np.min(count[Id])
