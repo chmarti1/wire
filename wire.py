@@ -354,9 +354,16 @@ Uses the complex coefficients to construct the inverse FFT
         
         I = np.fft.ifft2(self.get_fft2()).real
         
+        # Swap the rows around
+        I[:self.N[0]+1, :] = I[self.N[0]::-1, :]
+        I[self.N[0]+1:, :] = I[-1:self.N[0]:-1, :]
+        # Swap the columns around
+        I[:, :self.N[1]+1] = I[:, self.N[1]::-1]
+        I[:, self.N[1]+1:] = I[:, -1:self.N[1]:-1]
+        
         return x,y,I
 
-    def show(self, x, y, ax=None, block=True):
+    def show(self, ax=None, block=True, scale=None, cmap=None):
         
         # If the axes are not specified, create a new figure and a new
         # axes.
@@ -366,7 +373,25 @@ Uses the complex coefficients to construct the inverse FFT
         else:
             fig = ax.get_figure()
         
-        ax.pcolor(x,y,self(x,y))
+        # Get the data    
+        x,y,I = self.grid()
+            
+        if scale is None:
+            vmin = None
+            vmax = None
+        elif scale < 0:
+            vmax = 0
+            vmin = scale
+        else:
+            I = -I
+            vmax = scale
+            vmin = 0
+            
+        if cmap is None:
+            cmap = 'Greys'
+            
+        ax.pcolor(x,y,I,vmax=vmax,vmin=vmin,cmap=cmap,shading='auto')
+        #ax.pcolor(x,y,I,shading='auto')
         ax.set_aspect(self.L[1] / self.L[0])
         ax.set_xlim([-self.L[0]/2, self.L[0]/2])
         ax.set_ylim([-self.L[1]/2, self.L[1]/2])
@@ -530,10 +555,9 @@ if __name__ == '__main__':
         target = args[2]
         
         sd = WireCoefficients(infile)
-        x,y = sd.grid()
         
         fig,ax = plt.subplots(1,1,figsize=(6,6))
-        sd.show(x,y,ax=ax,block=False)
+        sd.show(ax=ax,block=False)
         
         if pretty:
             ax.set_xticks([])
