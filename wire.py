@@ -348,11 +348,11 @@ Uses the complex coefficients to construct the inverse FFT
         # 
 
         # If Nx and Ny are given, do nothing        
-        x = np.linspace(-self.L[0]/2,self.L[0]/2,2*Nx+1)
-        y = np.linspace(-self.L[1]/2, self.L[1]/2, 2*Ny+1)
+        x = np.linspace(-self.L[0]/2,self.L[0]/2, 2*self.N[0]+1)
+        y = np.linspace(-self.L[1]/2, self.L[1]/2, 2*self.N[1]+1)
         x,y = np.meshgrid(x,y)
         
-        I = np.fft.ifft2(self.get_fft2())
+        I = np.fft.ifft2(self.get_fft2()).real
         
         return x,y,I
 
@@ -366,7 +366,7 @@ Uses the complex coefficients to construct the inverse FFT
         else:
             fig = ax.get_figure()
         
-        ax.pcolor(x,y,self(x,y), shading='auto')
+        ax.pcolor(x,y,self(x,y))
         ax.set_aspect(self.L[1] / self.L[0])
         ax.set_xlim([-self.L[0]/2, self.L[0]/2])
         ax.set_ylim([-self.L[1]/2, self.L[1]/2])
