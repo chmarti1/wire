@@ -352,7 +352,7 @@ Uses the complex coefficients to construct the inverse FFT
         y = np.linspace(-self.L[1]/2, self.L[1]/2, 2*self.N[1]+1)
         x,y = np.meshgrid(x,y)
         
-        I = np.fft.ifft2(self.get_fft2()).real
+        I = np.fft.ifft2(self.get_fft2(), norm='forward').real
         
         # Swap the rows around
         I[:self.N[0]+1, :] = I[self.N[0]::-1, :]
